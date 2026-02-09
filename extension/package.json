@@ -1,0 +1,42 @@
+{
+	"name": "containerized-coder-extension",
+	"version": "1.0.0",
+	"engines": {
+		"vscode": "1.109.0"
+	},
+	"scripts": {
+		"compile": "tsc"
+	},
+	"devDependencies": {
+		"@types/node": "22.13.1",
+		"@types/vscode": "1.109.0",
+		"@vscode/vsce": "3.7.1",
+		"typescript": "5.7.3"
+	},
+	"main": "./output/extension.js",
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "containerizedCoder.helloWorld",
+				"title": "Hello World",
+				"category": "Containerized Coder"
+			},
+			{
+				"command": "containerizedCoder.showInfo",
+				"title": "Show Container Info",
+				"category": "Containerized Coder"
+			}
+		],
+		"configuration": {
+			"properties": {
+				"containerizedCoder.showWelcomeMessage": {
+					"type": "boolean",
+					"default": true
+				}
+			}
+		}
+	}
+}

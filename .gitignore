@@ -1,0 +1,14 @@
+# Dependencies
+node_modules/
+extension/node_modules/
+
+# Extension build output
+extension/output/
+extension/*.vsix
+
+# VSCode Server cache
+.vscode-server/
+
+# OS
+.DS_Store
+Thumbs.db

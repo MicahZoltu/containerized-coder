@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  vscode-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Add build args if needed
+        - BUILDKIT_INLINE_CACHE=1
+    image: containerized-coder:latest
+    container_name: containerized-coder
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount workspace directory for persistent storage
+      - ./workspace:/workspace
+      # Optional: Mount extension source for development
+      # - ./extension:/extension:ro
+    environment:
+      # VSCode server configuration
+      - VSCODE_PORT=8080
+      - VSCODE_HOST=0.0.0.0
+      - WORKSPACE_DIR=/workspace
+    restart: unless-stopped
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Resource limits (optional)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2.0'
+    #       memory: 4G
+    #     reservations:
+    #       cpus: '1.0'
+    #       memory: 2G
