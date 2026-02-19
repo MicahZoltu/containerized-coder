@@ -1,85 +1,169 @@
 ###
 # Stage 1: Extension Builder
 ###
-FROM node:24.13.0-alpine3.23@sha256:26eb49fbfdf03bf69f728b73178fa6f9e7c2cef88b06561b65497f5ae8e50a3d AS extension-builder
+FROM oven/bun:1.3.9@sha256:bb638d8a33d3744d4f33ab910c08de5fc7ab217a60e387628b53704afdb0a635 AS extension-builder
 
 WORKDIR /build
 
-# Cache dependecy layer
-COPY extension/package.json extension/package-lock.json ./
-RUN npm ci --ignore-scripts
-
-# Copy remaining extension files
-COPY extension/tsconfig.json ./
-COPY extension/source ./source
-RUN npm run compile
-
-
-###
-# Stage 2: Final Runtime Image
-###
-FROM ubuntu:24.04@sha256:a4453623f2f8319cfff65c43da9be80fe83b1a7ce689579b475867d69495b782
-
-# OS dependencies
+# Enable Debian snapshot repository for reproducible builds
 RUN <<EOF
-	apt-get update
-	apt-get install -y --no-install-recommends ca-certificates=20240203 curl=8.5.0-2ubuntu10.6 git=1:2.43.0-1ubuntu7.3
+	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
+	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
+	apt-get update -o Acquire::Check-Valid-Until=false
+EOF
+
+RUN <<EOF
+	set -e
+	apt-get install -y --no-install-recommends zip=3.0-15
 	rm -rf /var/lib/apt/lists/*
 EOF
 
-# User Management
-RUN useradd -m -s /bin/bash coder
-USER coder
-ENV HOME=/home/coder
-WORKDIR /home/coder
+# Cache dependecy layer
+COPY vscode-gui-old/package.json vscode-gui-old/package-lock.json ./
+RUN bun install --frozen-lockfile
 
-# Download and install VS Code CLI
+# Copy remaining extension files
+COPY vscode-gui-old/tsconfig.json ./
+COPY vscode-gui-old/extension-host ./extension-host
+COPY vscode-gui-old/script ./script
+COPY vscode-gui-old/webview ./webview
+COPY vscode-gui-old/README.md ./
+RUN bun run package
+
+
+###
+# Stage 2: OpenCode Builder
+###
+FROM oven/bun:1.3.9@sha256:bb638d8a33d3744d4f33ab910c08de5fc7ab217a60e387628b53704afdb0a635 AS opencode-builder
+
+WORKDIR /build
+
+# Enable Debian snapshot repository for reproducible builds
 RUN <<EOF
-	curl -fsSL -o /tmp/vscode-cli.tar.gz "https://vscode.download.prss.microsoft.com/dbazure/download/stable/bdd88df003631aaa0bcbe057cb0a940b80a476fa/vscode_cli_alpine_x64_cli.tar.gz"
-	echo "19ab98555925dbd127ed3a51a6289c6542839c32714fc6899811485f4519c6ee  /tmp/vscode-cli.tar.gz" | sha256sum -c -
-	mkdir -p /home/coder/vscode-cli
-	tar -xzf /tmp/vscode-cli.tar.gz -C /home/coder/vscode-cli
-	chmod +x /home/coder/vscode-cli/code
-	rm /tmp/vscode-cli.tar.gz
+	set -e
+	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
+	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
+	apt-get update -o Acquire::Check-Valid-Until=false
 EOF
 
-# Download and extract VS Code Server Web bundle (pre-install to avoid runtime download)
-# Server must be in a directory named after the commit ID
 RUN <<EOF
-	curl -fsSL -o /tmp/vscode-server-web.tar.gz "https://vscode.download.prss.microsoft.com/dbazure/download/stable/bdd88df003631aaa0bcbe057cb0a940b80a476fa/vscode-server-linux-x64-web.tar.gz"
-	echo "6d9446ced132e41fbd35f1c42d8fb49bf6f7cadd90e45a16d39c1bcb51230614  /tmp/vscode-server-web.tar.gz" | sha256sum -c -
-	mkdir -p /home/coder/.vscode-server/bin/bdd88df003631aaa0bcbe057cb0a940b80a476fa
-	tar -xzf /tmp/vscode-server-web.tar.gz -C /home/coder/.vscode-server/bin/bdd88df003631aaa0bcbe057cb0a940b80a476fa --strip-components=1
-	rm /tmp/vscode-server-web.tar.gz
-	# Accept server license terms by creating the license file
-	mkdir -p /home/coder/.vscode-server/data
-	echo "true" > /home/coder/.vscode-server/data/machine-id
-	echo "accept-server-license" > /home/coder/.vscode-server/data/license-accepted
+	set -e
+	apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 ca-certificates=20250419
+	rm -rf /var/lib/apt/lists/*
 EOF
 
-# Copy extension into VS Code Server extensions directory
-RUN mkdir -p /home/coder/.vscode-server/extensions/containerized-coder-extension
-COPY --from=extension-builder --chown=coder:coder /build/output /home/coder/.vscode-server/extensions/containerized-coder-extension/
-COPY --from=extension-builder --chown=coder:coder /build/package.json /home/coder/.vscode-server/extensions/containerized-coder-extension/
+RUN git clone --depth 1 --branch v1.1.53 https://github.com/anomalyco/opencode.git .
+RUN git fetch --tags
+RUN test "$(git rev-parse HEAD)" = "579902ace6e9fb925f50b7d9fdf11a6b47895307"
 
-# Set machine settings: dark theme
-RUN mkdir -p /home/coder/.vscode-server/data/Machine
-COPY --chown=coder:coder <<EOF /home/coder/.vscode-server/data/Machine/settings.json
+# Apply patch: Add focusable={false} to Session component
+RUN sed -i '/scrollAcceleration={scrollAcceleration()}/a\              focusable={false}' /build/packages/opencode/src/cli/cmd/tui/routes/session/index.tsx
+
+RUN bun install --frozen-lockfile
+RUN cd packages/opencode && bun run build -- --single
+
+# Resolve symlinks in place for images folder
+# RUN find /build/sdks/vscode/images -type l -exec sh -c 'cp -L "$1" "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;
+
+# Use the publish script to package only, with bun only (no NPM)
+RUN <<EOF
+	set -e
+	cd sdks/vscode
+	sed -i -e '/vsce publish/s/^/# /' -e '/ovsx/s/^/# /' ./script/publish
+	sed -i 's/^vsce package/bun x @vscode\/vsce package/' ./script/publish
+	sed -i '/"vscode:prepublish":/d' ./package.json
+	bun install --frozen-lockfile
+	bun run package
+	./script/publish
+EOF
+
+
+###
+# Stage 3: Final Runtime Image
+###
+FROM debian:12.13-slim@sha256:74a21da88cf4b2e8fde34558376153c5cd80b00ca81da2e659387e76524edc73 AS base
+
+# Enable Debian snapshot repository for reproducible builds
+RUN <<EOF
+	set -e
+	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
+	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
+	apt-get update -o Acquire::Check-Valid-Until=false
+EOF
+
+# OS dependencies
+RUN <<EOF
+	set -e
+	apt-get update
+	apt-get install -y --no-install-recommends ca-certificates=20230311+deb12u1 curl=7.88.1-10+deb12u14 git=1:2.39.5-0+deb12u3
+	rm -rf /var/lib/apt/lists/*
+EOF
+
+# Copy OpenCode binary to /usr/local/bin (on PATH, executable by all users)
+COPY --from=opencode-builder /build/packages/opencode/dist/opencode-linux-x64/bin/opencode /usr/local/bin/opencode
+RUN chmod +x /usr/local/bin/opencode
+
+# Install code-server (open-source VS Code: web server by Coder)
+RUN <<EOF
+	set -e
+	curl -fsSL -o /tmp/code-server.tar.gz "https://github.com/coder/code-server/releases/download/v4.108.2/code-server-4.108.2-linux-amd64.tar.gz"
+	echo "0ef733848473519c77b16085ea9f3477374db162b24f6b12edf820b3e9478fa8  /tmp/code-server.tar.gz" | sha256sum -c -
+	mkdir -p /opt/code-server
+	tar -xzf /tmp/code-server.tar.gz -C /opt/code-server --strip-components=1
+	rm /tmp/code-server.tar.gz
+EOF
+
+# Download EditorConfig extension
+RUN <<EOF
+	set -e
+	curl -fsSL -o /tmp/editorconfig.vsix "https://open-vsx.org/api/EditorConfig/EditorConfig/0.17.4/file/EditorConfig.EditorConfig-0.17.4.vsix"
+	echo "3183d8852280c60699d148a3c54fb188ee070cf2ed5c6ca684dfb66264debfc3  /tmp/editorconfig.vsix" | sha256sum -c -
+EOF
+
+# Install extensions from packaged vsix
+COPY --from=extension-builder /build/opencode-gui-0.1.0.vsix /tmp/opencode-gui-0.1.0.vsix
+COPY --from=opencode-builder /build/sdks/vscode/dist/opencode.vsix /tmp/opencode.vsix
+RUN /opt/code-server/bin/code-server --install-extension /tmp/opencode.vsix --install-extension /tmp/opencode-gui-0.1.0.vsix --install-extension /tmp/editorconfig.vsix
+
+# Setup initial configuration of code-server
+COPY <<EOF /root/.local/share/code-server/User/settings.json
 {
-	"workbench.colorTheme": "Default Dark+"
+	"chat.disableAIFeatures": true,
+	"workbench.colorTheme": "Default Dark+",
+	"workbench.secondarySideBar.defaultVisibility": "hidden",
+	"workbench.startupEditor": "none",
 }
 EOF
+ENV PORT=8080
+ENV CODE_SERVER_HOST=0.0.0.0
+ENV CS_DISABLE_GETTING_STARTED_OVERRIDE=1
+RUN git config --global --add safe.directory '*'
+RUN git config --global core.editor "code-server --wait"
 
-# Patch default workspace trust setting in compiled JavaScript to disable trust prompts
-RUN sed -i 's/\[gbe\]:{type:"boolean",default:!0/[gbe]:{type:"boolean",default:!1/g' /home/coder/.vscode-server/bin/bdd88df003631aaa0bcbe057cb0a940b80a476fa/out/vs/code/browser/workbench/workbench.js
-
-WORKDIR /home/coder/workspace
-VOLUME /home/coder/workspace
+# Create workspace directory
+WORKDIR /workspace
+VOLUME /workspace
 EXPOSE 8080
 
-# Pre-accept license by running a command during build
-RUN /home/coder/vscode-cli/code --accept-server-license-terms --version || true
+# Use code-server directly (pre-installed, no download needed)
+# Extensions are loaded from ~/.local/share/code-server/extensions by default
+# Note: --disable-telemetry and --disable-workspace-trust have no env var equivalents
+ENTRYPOINT ["/opt/code-server/bin/code-server", "--disable-telemetry", "--disable-workspace-trust", "--disable-update-check", "--auth", "none", "/workspace"]
 
-# Use VS Code Server directly (pre-installed, no download needed)
-# Extensions are loaded from ~/.vscode-server/extensions by default
-ENTRYPOINT ["/home/coder/.vscode-server/bin/bdd88df003631aaa0bcbe057cb0a940b80a476fa/bin/code-server", "--host", "0.0.0.0", "--port", "8080", "--without-connection-token", "--extensions-dir", "/home/coder/.vscode-server/extensions", "--accept-server-license-terms", "--default-folder", "/home/coder/workspace"]
+
+###
+# Bun Version
+###
+FROM base AS with-bun
+
+RUN apt-get update && apt-get install -y --no-install-recommends unzip=6.0-28 && rm -rf /var/lib/apt/lists/*
+
+RUN <<EOF
+	set -e
+	curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v1.3.9/bun-linux-x64.zip"
+	echo "4680e80e44e32aa718560ceae85d22ecfbf2efb8f3641782e35e4b7efd65a1aa  /tmp/bun.zip" | sha256sum -c -
+	unzip /tmp/bun.zip -d /tmp/bun-extract
+	mv /tmp/bun-extract/bun-linux-x64/bun /usr/local/bin/bun
+	chmod +x /usr/local/bin/bun
+	rm -rf /tmp/bun.zip /tmp/bun-extract
+EOF

@@ -1,0 +1,56 @@
+{
+  "name": "opencode-gui",
+  "displayName": "OpenCode GUI",
+  "description": "Rich GUI interface for opencode coding assistant",
+  "version": "0.1.0",
+  "publisher": "opencode",
+  "engines": {
+    "vscode": "^1.86.0"
+  },
+  "categories": [
+    "Machine Learning",
+    "Programming Languages"
+  ],
+  "main": "./output/extension.js",
+  "files": [
+    "output/**/*",
+    "webview/**/*"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "opencode.gui.openAssistant",
+        "title": "Open OpenCode GUI",
+        "category": "opencode"
+      },
+      {
+        "command": "opencode.gui.restartServer",
+        "title": "Restart OpenCode Server",
+        "category": "opencode"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "opencode.gui.openAssistant",
+        "key": "ctrl+shift+a",
+        "mac": "cmd+shift+a",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc && cd webview/ts && tsc",
+    "watch": "tsc --watch",
+    "test": "bun test output/**/*.test.js",
+    "package": "bun run build && bun run script/package.ts"
+  },
+  "dependencies": {
+    "@highlightjs/cdn-assets": "11.11.1",
+    "marked": "15.0.11"
+  },
+  "devDependencies": {
+    "@types/node": "20.17.17",
+    "@types/vscode": "1.97.0",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,73 @@
+{
+	"name": "opencode-vscode",
+	"displayName": "OpenCode",
+	"description": "AI-powered coding assistant",
+	"version": "0.1.0",
+	"publisher": "opencode",
+	"icon": "assets/icon.png",
+	"engines": {
+		"vscode": "^1.108.0"
+	},
+	"categories": [
+		"Machine Learning",
+		"Programming Languages"
+	],
+	"main": "./output/extension.js",
+	"files": [
+		"output/**/*",
+		"assets/**/*"
+	],
+	"scripts": {
+		"build": "bun --bun tsc --project tsconfig.json",
+		"package": "bun run scripts/package.ts",
+		"typecheck": "bun --bun tsc --noEmit --project tsconfig-check.json",
+		"test": "bun run test:unit && bun run integration",
+		"integration": "bun test --preload ./test/integration/setup-mock-llm.ts --preload ./test/integration/setup-opencode.mts --preload ./test/integration/setup-vscode-mock.ts test/integration/",
+		"test:unit": "bun test --preload ./test/integration/setup-vscode-mock.ts test/unit/"
+	},
+	"devDependencies": {
+		"@types/vscode": "1.108.0",
+		"@types/bun": "1.3.9",
+		"typescript": "5.9.3"
+	},
+	"dependencies": {
+		"@opencode-ai/sdk": "1.2.4",
+		"opencode-ai": "1.2.4"
+	},
+	"contributes": {
+		"viewsContainers": {
+			"activitybar": [
+				{ "id": "opencode", "title": "OpenCode", "icon": "assets/icon.png" }
+			]
+		},
+		"views": {
+			"opencode": [
+				{ "id": "opencode.sessions", "name": "Sessions" },
+				{ "id": "opencode.todos", "name": "ToDo" },
+				{ "id": "opencode.files", "name": "Files Changed" }
+			]
+		},
+		"commands": [
+			{ "command": "opencode.sessions.create", "title": "Create", "category": "OpenCode" },
+			{ "command": "opencode.sessions.refresh", "title": "Refresh", "category": "OpenCode" },
+			{ "command": "opencode.sessions.rename", "title": "Rename", "category": "OpenCode" },
+			{ "command": "opencode.sessions.archive", "title": "Archive", "category": "OpenCode" },
+			{ "command": "opencode.sessions.unarchive", "title": "Unarchive", "category": "OpenCode" },
+			{ "command": "opencode.sessions.delete", "title": "Delete", "category": "OpenCode" },
+			{ "command": "opencode.sessions.open", "title": "Open", "category": "OpenCode" },
+			{ "command": "opencode.model.select", "title": "Select Model", "category": "OpenCode" }
+		],
+		"menus": {
+			"view/title": [
+				{ "command": "opencode.sessions.create", "when": "view == opencode.sessions", "group": "navigation" },
+				{ "command": "opencode.sessions.refresh", "when": "view == opencode.sessions", "group": "navigation" }
+			],
+			"view/item/context": [
+				{ "command": "opencode.sessions.rename", "when": "view == opencode.sessions", "group": "modification" },
+				{ "command": "opencode.sessions.archive", "when": "view == opencode.sessions", "group": "modification" },
+				{ "command": "opencode.sessions.unarchive", "when": "view == opencode.sessions", "group": "modification" },
+				{ "command": "opencode.sessions.delete", "when": "view == opencode.sessions", "group": "deletion" }
+			]
+		}
+	}
+}
