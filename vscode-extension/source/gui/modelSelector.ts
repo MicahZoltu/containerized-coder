@@ -1,6 +1,6 @@
 import { OpencodeClient } from '@opencode-ai/sdk/v2'
 import * as vscode from 'vscode'
-import { getModelList } from '../opencode-helpers'
+import { getModelList } from '../opencode-helpers.js'
 
 export async function selectModelWithQuickPicker(client: OpencodeClient, noticeError: (message: string, error: unknown) => unknown, setModel: (model: string) => Promise<unknown>) {
 	try {

@@ -16,9 +16,15 @@ describe("files - pure functions", () => {
 	})
 
 	test("getChangeIcon returns correct icons", () => {
-		expect(getChangeIcon({ file: "", additions: 5, deletions: 0, before: "", after: "" }).id).toBe("git-add")
-		expect(getChangeIcon({ file: "", additions: 0, deletions: 5, before: "", after: "" }).id).toBe("git-remove")
-		expect(getChangeIcon({ file: "", additions: 5, deletions: 3, before: "", after: "" }).id).toBe("git-modified")
+		// With status field
+		expect(getChangeIcon({ file: "", status: "added", additions: 5, deletions: 0, before: "", after: "" }).id).toBe("diff-added")
+		expect(getChangeIcon({ file: "", status: "deleted", additions: 0, deletions: 5, before: "", after: "" }).id).toBe("diff-removed")
+		expect(getChangeIcon({ file: "", status: "modified", additions: 5, deletions: 3, before: "", after: "" }).id).toBe("diff-modified")
+		// Without status field - fallback to additions/deletions counts
+		expect(getChangeIcon({ file: "", additions: 5, deletions: 0, before: "", after: "" }).id).toBe("diff-added")
+		expect(getChangeIcon({ file: "", additions: 0, deletions: 5, before: "", after: "" }).id).toBe("diff-removed")
+		expect(getChangeIcon({ file: "", additions: 5, deletions: 3, before: "", after: "" }).id).toBe("diff-modified")
+		// No changes
 		expect(getChangeIcon({ file: "", additions: 0, deletions: 0, before: "", after: "" }).id).toBe("file")
 	})
 })

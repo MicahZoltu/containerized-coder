@@ -6,3 +6,7 @@ export function getNonce(): string {
 	}
 	return text
 }
+
+export function nowAsString(): string {
+	return new Date().toISOString().slice(0, 19).replace('T', ' ')
+}

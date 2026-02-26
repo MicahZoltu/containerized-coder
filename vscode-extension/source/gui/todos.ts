@@ -1,6 +1,6 @@
 import { OpencodeClient, Todo } from "@opencode-ai/sdk/v2"
 import * as vscode from "vscode"
-import { SessionContext } from "./sessions"
+import { SessionContext } from "./sessions.js"
 
 export async function getTodos(client: OpencodeClient, session: SessionContext, root?: Todo): Promise<Todo[]> {
 	if (root !== undefined) return []

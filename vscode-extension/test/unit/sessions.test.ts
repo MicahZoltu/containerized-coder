@@ -21,7 +21,6 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		const item = sessionNodeToTreeItem(node)
 		expect(item.label).toBe("Active Sessions")
 		expect(item.contextValue).toBe('active-group')
-		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
 		expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Expanded)
 	})
 
@@ -30,7 +29,6 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		const item = sessionNodeToTreeItem(node)
 		expect(item.label).toBe("Archived Sessions")
 		expect(item.contextValue).toBe('archived-group')
-		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
 		expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed)
 	})
 
@@ -57,7 +55,6 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		const node: SessionTreeNode = { type: 'session', data: { session, status: undefined } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("archived-1")
-		expect(item.description).toContain("(archived)")
 	})
 
 	test("creates tree item for session with busy status", () => {

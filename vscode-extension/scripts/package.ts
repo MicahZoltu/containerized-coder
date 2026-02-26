@@ -33,6 +33,15 @@ if (existsSync(assetsDirectory)) {
 	cpSync(assetsDirectory, join(extensionDirectory, "assets"), { recursive: true })
 }
 
+const sdkSource = join(extensionRoot, "node_modules", "@opencode-ai", "sdk")
+if (existsSync(sdkSource)) {
+	const sdkDest = join(extensionDirectory, "node_modules", "@opencode-ai", "sdk")
+	cpSync(sdkSource, sdkDest, { recursive: true })
+} else {
+	console.error("Error: @opencode-ai/sdk not found in node_modules. Run 'bun install' first.")
+	process.exit(1)
+}
+
 const packageJsonPath = join(extensionRoot, "package.json")
 const readmePath = join(extensionRoot, "README.md")
 

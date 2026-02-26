@@ -7,7 +7,7 @@ describe("refresh coordination", () => {
 			let refreshCount = 0
 			const refreshFn = async () => { refreshCount++ }
 
-			const disposable = setupPeriodicRefresh(refreshFn)
+			const disposable = setupPeriodicRefresh(refreshFn, () => {})
 
 			// The interval is set globally in the extension module
 			// We can't easily test the interval firing without waiting 10s

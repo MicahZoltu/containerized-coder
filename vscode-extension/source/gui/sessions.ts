@@ -68,31 +68,27 @@ export function sessionNodeToTreeItem(node: SessionTreeNode): vscode.TreeItem {
 		const item = new vscode.TreeItem("Active Sessions", vscode.TreeItemCollapsibleState.Expanded)
 		item.id = 'active-group'
 		item.contextValue = 'active-group'
-		item.iconPath = new vscode.ThemeIcon("folder")
 		return item
 	}
 	if (node.type === 'archived-group') {
 		const item = new vscode.TreeItem("Archived Sessions", vscode.TreeItemCollapsibleState.Collapsed)
 		item.id = 'archived-group'
 		item.contextValue = 'archived-group'
-		item.iconPath = new vscode.ThemeIcon("archive")
 		return item
 	}
 	const { session, status } = node.data
-	const isArchived = !!session.time?.archived
-	const item = new vscode.TreeItem(session.title, vscode.TreeItemCollapsibleState.Collapsed)
+	const item = new vscode.TreeItem(session.title)
 	item.id = session.id
-	item.description = formatSessionDescription(session, isArchived)
-	item.iconPath = new vscode.ThemeIcon(isArchived ? 'git-branch' : getSessionStatusIcon(status))
+	item.description = formatSessionDescription(session)
+	item.iconPath = new vscode.ThemeIcon(session.time.archived ? 'git-branch' : getSessionStatusIcon(status))
 	item.contextValue = 'session'
 	item.command = { command: "opencode.session.open", title: "Open Session", arguments: [session.id, session.title] }
 	return item
 }
 
-function formatSessionDescription(session: Session, isArchived: boolean): string {
-	const dateStr = new Date(session.time.created * 1000).toLocaleDateString()
-	if (isArchived) return `${dateStr} (archived)`
-	return dateStr
+function formatSessionDescription(session: Session): string {
+	if (!session.time.archived) return new Date(session.time.updated).toISOString().slice(0, 19).replace('T', ' ')
+	else return new Date(session.time.archived).toISOString().slice(0, 19).replace('T', ' ')
 }
 
 function getSessionStatusIcon(status: SessionStatus | undefined): string {

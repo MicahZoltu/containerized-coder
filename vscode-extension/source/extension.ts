@@ -1,4 +1,4 @@
-import { createOpencodeClient, type Event as SdkEvent } from "@opencode-ai/sdk/v2"
+import { createOpencode, type OpencodeClient, type Event as SdkEvent } from "@opencode-ai/sdk/v2"
 import * as vscode from "vscode"
 import { registerCommands } from "./commands.js"
 import { fileDiffToTreeItem, getFileDiffs } from "./gui/files.js"
@@ -8,6 +8,7 @@ import { archiveSession, createSession, createSessionContext, deleteSession, get
 import { getTodos, todoItemToTreeItem } from "./gui/todos.js"
 import { getModel, setModel } from "./opencode-helpers.js"
 import { createModelSelectorStatusBarItem } from "./statusbar.js"
+import { nowAsString } from "./utils.js"
 import { isPlainObject } from "./utils/typeGuards.js"
 import { closeSessionPanel, disposeAllSessionPanels } from "./webview/panel.js"
 
@@ -16,12 +17,6 @@ let refreshIntervalId: NodeJS.Timeout | null = null
 function isSdkEvent(obj: unknown): obj is SdkEvent {
 	if (!isPlainObject(obj)) return false
 	if (typeof obj.type !== 'string') return false
-	const knownTypes = new Set([
-		'session.created', 'session.updated', 'session.deleted',
-		'todo.updated', 'session.diff', 'session.status',
-		'session.idle', 'session.error'
-	])
-	if (!knownTypes.has(obj.type)) return false
 	const props = obj.properties
 	if (props !== undefined && props !== null) {
 		if (!isPlainObject(props)) return false
@@ -68,7 +63,7 @@ export function handleSdkEvent(noticeError: (message: string, error: unknown) =>
 	}
 }
 
-export async function startListeningForOpencodeEvents(client: ReturnType<typeof createOpencodeClient>, sdkEventHandler: (event: SdkEvent) => void): Promise<vscode.Disposable[]> {
+export async function startListeningForOpencodeEvents(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, noticeInfo: (message: string) => void, sdkEventHandler: (event: SdkEvent) => void): Promise<vscode.Disposable[]> {
 	const disposables: vscode.Disposable[] = []
 
 	try {
@@ -83,27 +78,27 @@ export async function startListeningForOpencodeEvents(client: ReturnType<typeof 
 					if (isSdkEvent(event)) {
 						emitter.fire(event)
 					} else {
-						console.error('Invalid event received:', event)
+						noticeError('Invalid event received', event)
 					}
 				}
 			} catch (error) {
-				console.error("SSE stream error:", error)
+				noticeError("SSE stream error", error)
 			}
 		}
 		backgroundStreamPumper()
 
 		disposables.push({ dispose: () => { listener.dispose(), emitter.dispose() } })
 
-		console.log("SSE event subscription established")
+		noticeInfo("SSE event subscription established")
 	} catch (error) {
-		console.error("Failed to subscribe to events:", error)
+		noticeError("Failed to subscribe to events", error)
 	}
 
 	return disposables
 }
 
-export function setupPeriodicRefresh(refreshFn: () => Promise<unknown>): vscode.Disposable {
-	refreshIntervalId = setInterval(() => { refreshFn().catch(console.error) }, 10000)
+export function setupPeriodicRefresh(refreshFn: () => Promise<unknown>, noticeError: (message: string, error: unknown) => void): vscode.Disposable {
+	refreshIntervalId = setInterval(() => { refreshFn().catch(error => noticeError("Periodic refresh failed", error)) }, 10000)
 	const dispose = () => {
 		if (!refreshIntervalId) return
 		clearInterval(refreshIntervalId)
@@ -115,14 +110,37 @@ export function setupPeriodicRefresh(refreshFn: () => Promise<unknown>): vscode.
 
 // entrypoint called by VSCode when extension is loaded
 export async function activate(context: vscode.ExtensionContext) {
-	console.log("OpenCode extension activating...")
+	const outputChannel = vscode.window.createOutputChannel("OpenCode GUI Logs")
+	context.subscriptions.push(outputChannel)
+
+	const noticeError = async (message: string, error: unknown) => {
+		const errorMessage = error instanceof Error ? error.message : String(error)
+		const formatted = `${nowAsString()} [ERROR] ${message}: ${errorMessage}`
+		outputChannel.appendLine(formatted)
+		if (error instanceof Error) {
+			const stack = error.stack
+			if (stack) {
+				outputChannel.appendLine(stack)
+			}
+		}
+		const selection = await vscode.window.showErrorMessage(`${message}: ${errorMessage}`, 'See Log')
+		if (selection === 'See Log') {
+			outputChannel.show()
+		}
+		// NOTE: This is intentionally a tail call because `showErrorMessage` may take a long time to resolve
+	}
+
 
 	try {
-		const noticeError = (message: string, error: unknown) => {
-			console.error(message, error)
-			vscode.window.showErrorMessage(`${message}: ${error}`)
+		const noticeInfo = (message: string) => {
+			const formatted = `${nowAsString()} [INFO] ${message}`
+			console.log(formatted)
+			outputChannel.appendLine(formatted)
 		}
-		const client = createOpencodeClient()
+		noticeInfo("OpenCode extension activating...")
+
+		const { client, server } = await createOpencode()
+		context.subscriptions.push({ dispose: () => server.close() })
 
 		const modelSelector = createModelSelectorStatusBarItem()
 		context.subscriptions.push(modelSelector)
@@ -162,17 +180,16 @@ export async function activate(context: vscode.ExtensionContext) {
 		sessionsTreeView.onDidChangeSelection(event => event.selection[0]?.type === 'session' && sessionContext.selectSession(event.selection[0].data.session.id))
 
 		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter)
-		context.subscriptions.push(...await startListeningForOpencodeEvents(client, curriedHandleSdkEvent))
+		context.subscriptions.push(...await startListeningForOpencodeEvents(client, noticeError, noticeInfo, curriedHandleSdkEvent))
 
-		context.subscriptions.push(setupPeriodicRefresh(curriedGetModel))
+		context.subscriptions.push(setupPeriodicRefresh(curriedGetModel, noticeError))
 		curriedGetModel()
 
 		context.subscriptions.push({ dispose: disposeAllSessionPanels })
 
-		console.log("OpenCode extension activated successfully")
+		noticeInfo("OpenCode extension activated successfully")
 	} catch (error) {
-		console.error("Failed to activate OpenCode extension:", error)
-		vscode.window.showErrorMessage(`OpenCode extension failed to activate: ${error}`)
+		noticeError("Failed to activate OpenCode extension", error)
 	}
 }
 

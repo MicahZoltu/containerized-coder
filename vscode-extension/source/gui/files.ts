@@ -17,17 +17,22 @@ export function fileDiffToTreeItem(diff: FileDiff) {
 	const item = new vscode.TreeItem(diff.file, vscode.TreeItemCollapsibleState.None)
 	item.description = `+${diff.additions} -${diff.deletions}`
 	item.iconPath = getChangeIcon(diff)
-	item.tooltip = `File: ${diff.file}\nAdditions: ${diff.additions}\nDeletions: ${diff.deletions}`
 	return item
 }
 
 export function getChangeIcon(diff: FileDiff): vscode.ThemeIcon {
-	if (diff.additions > 0 && diff.deletions === 0) {
-		return new vscode.ThemeIcon("git-add")
+	if (diff.status === "added") {
+		return new vscode.ThemeIcon("diff-added")
+	} else if (diff.status === "deleted") {
+		return new vscode.ThemeIcon("diff-removed")
+	} else if (diff.status === "modified") {
+		return new vscode.ThemeIcon("diff-modified")
+	} else if (diff.additions > 0 && diff.deletions === 0) {
+		return new vscode.ThemeIcon("diff-added")
 	} else if (diff.deletions > 0 && diff.additions === 0) {
-		return new vscode.ThemeIcon("git-remove")
+		return new vscode.ThemeIcon("diff-removed")
 	} else if (diff.additions > 0 || diff.deletions > 0) {
-		return new vscode.ThemeIcon("git-modified")
+		return new vscode.ThemeIcon("diff-modified")
 	} else {
 		return new vscode.ThemeIcon("file")
 	}
