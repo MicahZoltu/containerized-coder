@@ -51,10 +51,10 @@
 		"commands": [
 			{ "command": "opencode.sessions.create", "title": "Create", "category": "OpenCode" },
 			{ "command": "opencode.sessions.refresh", "title": "Refresh", "category": "OpenCode" },
-			{ "command": "opencode.sessions.rename", "title": "Rename", "category": "OpenCode" },
-			{ "command": "opencode.sessions.archive", "title": "Archive", "category": "OpenCode" },
-			{ "command": "opencode.sessions.unarchive", "title": "Unarchive", "category": "OpenCode" },
-			{ "command": "opencode.sessions.delete", "title": "Delete", "category": "OpenCode" },
+			{ "command": "opencode.sessions.rename", "title": "Rename", "category": "OpenCode", "icon": "$(edit)" },
+			{ "command": "opencode.sessions.archive", "title": "Archive", "category": "OpenCode", "icon": "$(archive)" },
+			{ "command": "opencode.sessions.unarchive", "title": "Unarchive", "category": "OpenCode", "icon": "$(archive)" },
+			{ "command": "opencode.sessions.delete", "title": "Delete", "category": "OpenCode", "icon": "$(trash)" },
 			{ "command": "opencode.sessions.open", "title": "Open", "category": "OpenCode" },
 			{ "command": "opencode.model.select", "title": "Select Model", "category": "OpenCode" }
 		],
@@ -64,10 +64,10 @@
 				{ "command": "opencode.sessions.refresh", "when": "view == opencode.sessions", "group": "navigation" }
 			],
 			"view/item/context": [
-				{ "command": "opencode.sessions.rename", "when": "view == opencode.sessions", "group": "modification" },
-				{ "command": "opencode.sessions.archive", "when": "view == opencode.sessions", "group": "modification" },
-				{ "command": "opencode.sessions.unarchive", "when": "view == opencode.sessions", "group": "modification" },
-				{ "command": "opencode.sessions.delete", "when": "view == opencode.sessions", "group": "deletion" }
+				{ "command": "opencode.sessions.rename", "when": "view == opencode.sessions && (viewItem == active-session || viewItem == archived-session)", "group": "inline" },
+				{ "command": "opencode.sessions.archive", "when": "view == opencode.sessions && viewItem == active-session", "group": "inline" },
+				{ "command": "opencode.sessions.unarchive", "when": "view == opencode.sessions && viewItem == archived-session", "group": "inline" },
+				{ "command": "opencode.sessions.delete", "when": "view == opencode.sessions && viewItem == archived-session", "group": "inline" }
 			]
 		}
 	}

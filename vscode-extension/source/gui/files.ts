@@ -27,12 +27,6 @@ export function getChangeIcon(diff: FileDiff): vscode.ThemeIcon {
 		return new vscode.ThemeIcon("diff-removed")
 	} else if (diff.status === "modified") {
 		return new vscode.ThemeIcon("diff-modified")
-	} else if (diff.additions > 0 && diff.deletions === 0) {
-		return new vscode.ThemeIcon("diff-added")
-	} else if (diff.deletions > 0 && diff.additions === 0) {
-		return new vscode.ThemeIcon("diff-removed")
-	} else if (diff.additions > 0 || diff.deletions > 0) {
-		return new vscode.ThemeIcon("diff-modified")
 	} else {
 		return new vscode.ThemeIcon("file")
 	}

@@ -92,7 +92,7 @@ If a needed script is missing, ask the user to add it before proceeding.
 
 ## Bun
 * Setup scripts should use `bun install --frozen-lockfile`, not `bun install`.
-* Run typecheck with `bun --bun tsc --noEmit` periodically.
+* Periodically run typecheck with script in `package.json` or `bun --bun tsc --noEmit` if there is no script for typechecking present.
 * Make sure you are type checking the tests as well as the project, this may require multiple tsconfig.json files.
 
 ## NodeJS

@@ -1,26 +1,19 @@
 import { createOpencodeClient } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
 import * as vscode from "vscode"
-import { registerCommands } from "../../source/commands.js"
 import { createSessionContext } from "../../source/gui/sessions.js"
-import { createMockExtensionContext } from "../helpers.js"
 import { server } from "./setup-opencode.mjs"
 
 describe("commands", () => {
-	test("opencode.sessions.create calls client.session.create and fires emitter", async () => {
+	test("opencode.sessions.create calls client.session.create without title and fires emitter", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
 		const sessionsEmitter = new vscode.EventEmitter<void>()
 
-		vscode.window.showInputBox = async () => "New Title"
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
-		registerCommands(createMockExtensionContext(), async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, sessionsEmitter)
-
-		const title = await vscode.window.showInputBox({ prompt: "Enter session title", placeHolder: "Session title" })
-		expect(title).toBe("New Title")
-
-		await client.session.create({ title: title! })
+		// Create session without providing title (server will auto-generate)
+		await client.session.create({})
 		sessionsEmitter.fire()
 
 		expect(fireCount).toBe(1)
@@ -40,8 +33,6 @@ describe("commands", () => {
 		vscode.window.showInputBox = async () => "Renamed"
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
-
-		registerCommands(createMockExtensionContext(), async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, sessionsEmitter)
 
 		const sessionID = treeItem.id
 		expect(sessionID).toBe(sessionId)
@@ -74,8 +65,6 @@ describe("commands", () => {
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
-		registerCommands(createMockExtensionContext(), async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, sessionsEmitter)
-
 		const sessionID = treeItem.id
 		expect(sessionID).toBe(sessionId)
 
@@ -105,8 +94,6 @@ describe("commands", () => {
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
-		registerCommands(createMockExtensionContext(), async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, sessionsEmitter)
-
 		const sessionID = treeItem.id
 		await client.session.unshare({ sessionID })
 		sessionsEmitter.fire()
@@ -132,8 +119,6 @@ describe("commands", () => {
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
-		registerCommands(createMockExtensionContext(), async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, sessionsEmitter)
-
 		const sessionID = treeItem.id
 		expect(sessionID).toBe(sessionId)
 
@@ -152,8 +137,6 @@ describe("commands", () => {
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
-
-		registerCommands(createMockExtensionContext(), async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, sessionsEmitter)
 
 		sessionsEmitter.fire()
 

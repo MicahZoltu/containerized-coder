@@ -32,7 +32,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed)
 	})
 
-	test("creates tree item for session node", () => {
+	test("creates tree item for active session node", () => {
 		const session = createMockSession({ id: "sess-123", title: "My Session" })
 		const node: SessionTreeNode = { type: 'session', data: { session, status: undefined } }
 		const item = sessionNodeToTreeItem(node)
@@ -40,21 +40,22 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		expect(item.label).toBe("My Session")
 		expect(item.description).toBeDefined()
 		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
-		expect(item.contextValue).toBe('session')
+		expect(item.contextValue).toBe('active-session')
 		expect(item.command?.command).toBe("opencode.session.open")
 		expect(item.command?.arguments).toEqual(["sess-123", "My Session"])
 	})
 
-		test("creates tree item for archived session", () => {
-			const session = createMockSession({
-				id: "archived-1",
-				slug: "archived-1",
-				title: "Archived Session",
-				time: { archived: 1234567890 }
-			})
+	test("creates tree item for archived session", () => {
+		const session = createMockSession({
+			id: "archived-1",
+			slug: "archived-1",
+			title: "Archived Session",
+			time: { archived: 1234567890 }
+		})
 		const node: SessionTreeNode = { type: 'session', data: { session, status: undefined } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("archived-1")
+		expect(item.contextValue).toBe('archived-session')
 	})
 
 	test("creates tree item for session with busy status", () => {
@@ -62,6 +63,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		const node: SessionTreeNode = { type: 'session', data: { session, status: { type: "busy" } } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("busy-1")
+		expect(item.contextValue).toBe('active-session')
 	})
 })
 

@@ -1,10 +1,8 @@
 import { type Event as SdkEvent, type Session } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
 import * as vscode from "vscode"
-import { registerCommands } from "../../source/commands.js"
 import { handleSdkEvent, setupPeriodicRefresh } from "../../source/extension.js"
 import { createSessionContext } from "../../source/gui/sessions.js"
-import { createMockExtensionContext } from "../helpers.js"
 
 describe("event handler", () => {
 	test("handleSdkEvent returns function that handles session.created", () => {
@@ -35,17 +33,5 @@ describe("refresh coordination", () => {
 		const disposable = setupPeriodicRefresh(refreshFn, () => {})
 		expect(disposable).toEqual({ dispose: expect.any(Function) })
 		disposable.dispose()
-	})
-})
-
-describe("command registration", () => {
-	test("registerCommands returns disposables", () => {
-		const context = createMockExtensionContext()
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-
-		const disposables = registerCommands(context, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, async () => {}, sessionsEmitter)
-
-		expect(Array.isArray(disposables)).toBe(true)
-		sessionsEmitter.dispose()
 	})
 })

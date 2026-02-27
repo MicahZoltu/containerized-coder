@@ -81,7 +81,7 @@ export function sessionNodeToTreeItem(node: SessionTreeNode): vscode.TreeItem {
 	item.id = session.id
 	item.description = formatSessionDescription(session)
 	item.iconPath = new vscode.ThemeIcon(session.time.archived ? 'git-branch' : getSessionStatusIcon(status))
-	item.contextValue = 'session'
+	item.contextValue = session.time.archived ? 'archived-session' : 'active-session'
 	item.command = { command: "opencode.session.open", title: "Open Session", arguments: [session.id, session.title] }
 	return item
 }
@@ -104,97 +104,82 @@ export function getRootSessions(sessions: SessionWithStatus[], isArchivedGroup: 
 		.map(session => ({ type: 'session', data: session }))
 }
 
-export function createSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>): () => Promise<void> {
-	return async () => {
-		const title = await vscode.window.showInputBox({ prompt: "Enter session title", placeHolder: "Session title" })
-
-		if (!title) return
-
-		try {
-			await client.session.create({ title })
-			sessionsEmitter.fire()
-		} catch (error) {
-			noticeError("Failed to create session", error)
-		}
+export async function createSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>) {
+	try {
+		await client.session.create({})
+		sessionsEmitter.fire()
+	} catch (error) {
+		noticeError("Failed to create session", error)
 	}
 }
 
-export function renameSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>): (sessionItem?: vscode.TreeItem) => Promise<void> {
-	return async (sessionItem?: vscode.TreeItem) => {
-		const sessionID = sessionItem?.id
-		if (!sessionID) {
-			vscode.window.showWarningMessage("Please select a session to rename")
-			return
-		}
+export async function renameSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, node?: SessionTreeNode) {
+	if (node?.type !== 'session') {
+		vscode.window.showWarningMessage("Please select a session to rename")
+		return
+	}
+	const sessionID = node.data.session.id
+	const currentTitle = node.data.session.title
+	const newTitle = await vscode.window.showInputBox({ prompt: "Enter new session title", placeHolder: "Session title", value: currentTitle })
 
-		const currentTitle = typeof sessionItem?.label === 'string' ? sessionItem.label : ""
-		const newTitle = await vscode.window.showInputBox({ prompt: "Enter new session title", placeHolder: "Session title", value: currentTitle })
+	if (!newTitle || newTitle === currentTitle) return
 
-		if (!newTitle || newTitle === currentTitle) return
-
-		try {
-			await client.session.update({ sessionID, title: newTitle })
-			sessionsEmitter.fire()
-		} catch (error) {
-			noticeError("Failed to rename session", error)
-		}
+	try {
+		await client.session.update({ sessionID, title: newTitle })
+		sessionsEmitter.fire()
+	} catch (error) {
+		noticeError("Failed to rename session", error)
 	}
 }
 
-export function archiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>): (sessionItem?: vscode.TreeItem) => Promise<void> {
-	return async (sessionItem?: vscode.TreeItem) => {
-		const sessionID = sessionItem?.id
-		if (!sessionID) {
-			vscode.window.showWarningMessage("Please select a session to archive")
-			return
-		}
+export async function archiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, node?: SessionTreeNode) {
+	if (node?.type !== 'session') {
+		vscode.window.showWarningMessage("Please select a session to archive")
+		return
+	}
+	const sessionID = node.data.session.id
 
-		try {
-			await client.session.update({ sessionID, time: { archived: Math.floor(Date.now() / 1000) } })
-			sessionsEmitter.fire()
-		} catch (error) {
-			noticeError("Failed to archive session", error)
-		}
+	try {
+		await client.session.update({ sessionID, time: { archived: Math.floor(Date.now() / 1000) } })
+		sessionsEmitter.fire()
+	} catch (error) {
+		noticeError("Failed to archive session", error)
 	}
 }
 
-export function unarchiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>): (sessionItem?: vscode.TreeItem) => Promise<void> {
-	return async (sessionItem?: vscode.TreeItem) => {
-		const sessionID = sessionItem?.id
-		if (!sessionID) {
-			vscode.window.showWarningMessage("Please select a session to unarchive")
-			return
-		}
+export async function unarchiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, node?: SessionTreeNode) {
+	if (node?.type !== 'session') {
+		vscode.window.showWarningMessage("Please select a session to unarchive")
+		return
+	}
+	const sessionID = node.data.session.id
 
-		try {
-			await client.session.update({ sessionID, time: { archived: 0 } })
-			sessionsEmitter.fire()
-		} catch (error) {
-			noticeError("Failed to unarchive session", error)
-		}
+	try {
+		await client.session.update({ sessionID, time: { archived: 0 } })
+		sessionsEmitter.fire()
+	} catch (error) {
+		noticeError("Failed to unarchive session", error)
 	}
 }
 
-export function deleteSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, sessionContext: SessionContext): (sessionItem?: vscode.TreeItem) => Promise<void> {
-	return async (sessionItem?: vscode.TreeItem) => {
-		const sessionID = sessionItem?.id
-		if (!sessionID) {
-			vscode.window.showWarningMessage("Please select a session to delete")
-			return
+export async function deleteSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, sessionContext: SessionContext, node?: SessionTreeNode) {
+	if (node?.type !== 'session') {
+		vscode.window.showWarningMessage("Please select a session to delete")
+		return
+	}
+	const sessionID = node.data.session.id
+
+	const confirmed = await vscode.window.showWarningMessage("Are you sure you want to delete this session? This cannot be undone.", { modal: true }, "Yes")
+
+	if (confirmed !== "Yes") return
+
+	try {
+		await client.session.delete({ sessionID })
+		sessionsEmitter.fire()
+		if (sessionContext.getCurrentSessionId() === sessionID) {
+			sessionContext.selectSession(null)
 		}
-
-		const confirmed = await vscode.window.showWarningMessage("Are you sure you want to delete this session? This cannot be undone.", { modal: true }, "Yes")
-
-		if (confirmed !== "Yes") return
-
-		try {
-			await client.session.delete({ sessionID })
-			sessionsEmitter.fire()
-			if (sessionContext.getCurrentSessionId() === sessionID) {
-				sessionContext.selectSession(null)
-			}
-		} catch (error) {
-			noticeError("Failed to delete session", error)
-		}
+	} catch (error) {
+		noticeError("Failed to delete session", error)
 	}
 }

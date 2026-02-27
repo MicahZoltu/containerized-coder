@@ -1,6 +1,5 @@
 import { createOpencode, type OpencodeClient, type Event as SdkEvent } from "@opencode-ai/sdk/v2"
 import * as vscode from "vscode"
-import { registerCommands } from "./commands.js"
 import { fileDiffToTreeItem, getFileDiffs } from "./gui/files.js"
 import { selectModelWithQuickPicker } from "./gui/modelSelector.js"
 import type { SessionContext } from "./gui/sessions.js"
@@ -10,7 +9,7 @@ import { getModel, setModel } from "./opencode-helpers.js"
 import { createModelSelectorStatusBarItem } from "./statusbar.js"
 import { nowAsString } from "./utils.js"
 import { isPlainObject } from "./utils/typeGuards.js"
-import { closeSessionPanel, disposeAllSessionPanels } from "./webview/panel.js"
+import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "./webview/panel.js"
 
 let refreshIntervalId: NodeJS.Timeout | null = null
 
@@ -130,62 +129,80 @@ export async function activate(context: vscode.ExtensionContext) {
 		// NOTE: This is intentionally a tail call because `showErrorMessage` may take a long time to resolve
 	}
 
+	const noticeInfo = (message: string) => {
+		const formatted = `${nowAsString()} [INFO] ${message}`
+		console.log(formatted)
+		outputChannel.appendLine(formatted)
+	}
 
 	try {
-		const noticeInfo = (message: string) => {
-			const formatted = `${nowAsString()} [INFO] ${message}`
-			console.log(formatted)
-			outputChannel.appendLine(formatted)
-		}
 		noticeInfo("OpenCode extension activating...")
 
 		const { client, server } = await createOpencode()
-		context.subscriptions.push({ dispose: () => server.close() })
 
 		const modelSelector = createModelSelectorStatusBarItem()
-		context.subscriptions.push(modelSelector)
-
 		const sessionContext = createSessionContext()
-		context.subscriptions.push(sessionContext)
-
 		const todoEmitter = new vscode.EventEmitter<void>()
 		sessionContext.onChange(() => todoEmitter.fire())
-		context.subscriptions.push(todoEmitter)
-
 		const fileEmitter = new vscode.EventEmitter<void>()
 		sessionContext.onChange(() => fileEmitter.fire())
-		context.subscriptions.push(fileEmitter)
 
 		const sessionsEmitter = new vscode.EventEmitter<void>()
-		context.subscriptions.push(sessionsEmitter)
 
 		const onModelNameChanged = async (newModelName: string) => modelSelector.setModelName(newModelName)
 		const curriedGetModel = getModel.bind(undefined, client, noticeError, onModelNameChanged)
 		const curriedSetModel = setModel.bind(undefined, client, noticeError, curriedGetModel)
-		const curriedModelQuickPicker = selectModelWithQuickPicker.bind(undefined, client, noticeError, curriedSetModel)
 		const curriedGetTodos = getTodos.bind(undefined, client, sessionContext)
 		const curriedGetFileDiffs = getFileDiffs.bind(undefined, client, sessionContext)
 		const curriedGetSessions = getSessions.bind(undefined, client)
-		const curriedCreateSession = createSession(client, noticeError, sessionsEmitter)
-		const curriedRenameSession = renameSession(client, noticeError, sessionsEmitter)
-		const curriedArchiveSession = archiveSession(client, noticeError, sessionsEmitter)
-		const curriedUnarchiveSession = unarchiveSession(client, noticeError, sessionsEmitter)
-		const curriedDeleteSession = deleteSession(client, noticeError, sessionsEmitter, sessionContext)
+		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter)
 
-		context.subscriptions.push(...registerCommands(context, curriedCreateSession, curriedRenameSession, curriedArchiveSession, curriedUnarchiveSession, curriedDeleteSession, curriedModelQuickPicker, sessionsEmitter))
+		const sessionOpenCommand = vscode.commands.registerCommand("opencode.session.open", openSessionPanel.bind(undefined, context))
+		const sessionSelectCommand = vscode.commands.registerCommand("opencode.model.select", selectModelWithQuickPicker.bind(undefined, client, noticeError, curriedSetModel))
+		const sessionCreateCommand = vscode.commands.registerCommand("opencode.sessions.create", createSession.bind(undefined, client, noticeError, sessionsEmitter))
+		const sessionRefreshCommand = vscode.commands.registerCommand("opencode.sessions.refresh", () => sessionsEmitter.fire())
+		const sessionRenameCommand = vscode.commands.registerCommand("opencode.sessions.rename", renameSession.bind(undefined, client, noticeError, sessionsEmitter))
+		const sessionArchiveCommand = vscode.commands.registerCommand("opencode.sessions.archive", archiveSession.bind(undefined, client, noticeError, sessionsEmitter))
+		const sessionUnarchiveCommand = vscode.commands.registerCommand("opencode.sessions.unarchive", unarchiveSession.bind(undefined, client, noticeError, sessionsEmitter))
+		const sessionDeleteCommand = vscode.commands.registerCommand("opencode.sessions.delete", deleteSession.bind(undefined, client, noticeError, sessionsEmitter, sessionContext))
 
-		vscode.window.createTreeView("opencode.todos", { treeDataProvider: { getTreeItem: todoItemToTreeItem, getChildren: curriedGetTodos, onDidChangeTreeData: todoEmitter.event }, showCollapseAll: false })
-		vscode.window.createTreeView("opencode.files", { treeDataProvider: { getTreeItem: fileDiffToTreeItem, getChildren: curriedGetFileDiffs, onDidChangeTreeData: fileEmitter.event }, showCollapseAll: false })
+		const todoTreeView = vscode.window.createTreeView("opencode.todos", { treeDataProvider: { getTreeItem: todoItemToTreeItem, getChildren: curriedGetTodos, onDidChangeTreeData: todoEmitter.event }, showCollapseAll: false })
+		const fileDiffTreeView = vscode.window.createTreeView("opencode.files", { treeDataProvider: { getTreeItem: fileDiffToTreeItem, getChildren: curriedGetFileDiffs, onDidChangeTreeData: fileEmitter.event }, showCollapseAll: false })
 		const sessionsTreeView = vscode.window.createTreeView("opencode.sessions", { treeDataProvider: { getTreeItem: sessionNodeToTreeItem, getChildren: curriedGetSessions, onDidChangeTreeData: sessionsEmitter.event }, showCollapseAll: true })
 		sessionsTreeView.onDidChangeSelection(event => event.selection[0]?.type === 'session' && sessionContext.selectSession(event.selection[0].data.session.id))
 
-		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter)
-		context.subscriptions.push(...await startListeningForOpencodeEvents(client, noticeError, noticeInfo, curriedHandleSdkEvent))
+		context.subscriptions.push(
+			{ dispose: () => server.close() },
+			outputChannel,
+			modelSelector,
+			sessionContext,
 
-		context.subscriptions.push(setupPeriodicRefresh(curriedGetModel, noticeError))
+			todoEmitter,
+			fileEmitter,
+			sessionsEmitter,
+
+			sessionOpenCommand,
+			sessionSelectCommand,
+			sessionCreateCommand,
+			sessionRefreshCommand,
+			sessionRenameCommand,
+			sessionArchiveCommand,
+			sessionUnarchiveCommand,
+			sessionDeleteCommand,
+
+			todoTreeView,
+			fileDiffTreeView,
+			sessionsTreeView,
+
+			setupPeriodicRefresh(curriedGetModel, noticeError),
+
+			{ dispose: disposeAllSessionPanels },
+
+			...await startListeningForOpencodeEvents(client, noticeError, noticeInfo, curriedHandleSdkEvent),
+		)
+
+		// initial query for the current model at startup
 		curriedGetModel()
-
-		context.subscriptions.push({ dispose: disposeAllSessionPanels })
 
 		noticeInfo("OpenCode extension activated successfully")
 	} catch (error) {
