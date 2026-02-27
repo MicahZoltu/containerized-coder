@@ -1,6 +1,5 @@
-import { createOpencodeClient } from "@opencode-ai/sdk/v2"
-import { beforeEach, describe, expect, test } from "bun:test"
-import { getRootSessions, getSessionChildrenFromServer, getSessionsWithStatuses, type SessionWithStatus } from "../../source/gui/sessions.js"
+import { describe, expect, test } from "bun:test"
+import { fetchSessions, getRootSessions, type SessionWithStatus, type SessionTreeNode } from "../../source/gui/sessions.js"
 import { server } from "./setup-opencode.mjs"
 
 function createMockSession(overrides: any = {}): any {
@@ -16,80 +15,86 @@ function createMockSession(overrides: any = {}): any {
 	}
 }
 
-describe("sessions - getSessionsWithStatuses", () => {
-	let client: ReturnType<typeof createOpencodeClient>
-
-	beforeEach(() => {
-		client = createOpencodeClient({ baseUrl: server.url })
-	})
-
+describe("sessions - fetchSessions (root)", () => {
 	test("fetches sessions from server", async () => {
-		await client.session.create({ title: "Test Session" })
-		const sessions = await getSessionsWithStatuses(client)
-		expect(sessions.length).toBeGreaterThan(0)
-		const first = sessions[0]
-		expect(first?.session.id).toBeDefined()
-		expect(first?.session.title).toBeDefined()
+		await server.client.session.create({ title: "Test Session" })
+		const nodes = await fetchSessions(server.client, { type: 'active-group' })
+		expect(nodes.length).toBeGreaterThan(0)
+		const first = nodes[0]
+		if (!first) {
+			throw new Error('Expected node to exist')
+		}
+		if (first.type !== 'session') {
+			throw new Error('Expected first node to be a session')
+		}
+		expect(first.data.id).toBeDefined()
+		expect(first.data.title).toBeDefined()
 	})
 
 	test("includes status for each session", async () => {
-		await client.session.create({ title: "Test Session" })
-		const sessions = await getSessionsWithStatuses(client)
-		const first = sessions[0]
-		expect(first).toHaveProperty('session')
-		expect(first).toHaveProperty('status')
+		await server.client.session.create({ title: "Test Session" })
+		const nodes = await fetchSessions(server.client, { type: 'active-group' })
+		const first = nodes[0]
+		if (!first) {
+			throw new Error('Expected node to exist')
+		}
+		if (first.type !== 'session') {
+			throw new Error('Expected first node to be a session')
+		}
+		expect(first.data).toHaveProperty('status')
 	})
 })
 
-describe("sessions - getSessionChildrenFromServer", () => {
-	let client: ReturnType<typeof createOpencodeClient>
-
-	beforeEach(() => {
-		client = createOpencodeClient({ baseUrl: server.url })
-	})
-
+describe("sessions - fetchSessions (children)", () => {
 	test("fetches children for a session", async () => {
-		const parent = await client.session.create({ title: "Parent Session" })
+		const parent = await server.client.session.create({ title: "Parent Session" })
 		if (!parent.data) {
 			throw new Error("Failed to create parent session")
 		}
-		await client.session.create({ title: "Child Session", parentID: parent.data.id })
+		await server.client.session.create({ title: "Child Session", parentID: parent.data.id })
 
-		const children = await getSessionChildrenFromServer(client, parent.data.id)
-		expect(children.length).toBeGreaterThan(0)
-		const first = children[0]
-		expect(first?.session.parentID).toBe(parent.data.id)
+		const parentNode: SessionTreeNode = { type: 'session', data: { ...parent.data, status: { type: "idle" } } }
+		const childNodes = await fetchSessions(server.client, parentNode)
+		expect(childNodes.length).toBeGreaterThan(0)
+		const first = childNodes[0]
+		if (!first) {
+			throw new Error('Expected node to exist')
+		}
+		if (first.type !== 'session') {
+			throw new Error('Expected first node to be a session')
+		}
+		expect(first.data.parentID).toBe(parent.data.id)
 	})
 })
 
-describe("sessions - getRootSessions", () => {
+describe("sessions - fetchtRootSessions", () => {
 	test("filters correctly for active group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ session: createMockSession({ id: "root-1" }), status: undefined },
-			{ session: createMockSession({ id: "child-1", parentID: "root-1" }), status: undefined },
-			{ session: createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: undefined }
+			{ ...createMockSession({ id: "root-1" }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "child-1", parentID: "root-1" }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } }
 		]
 		const rootNodes = getRootSessions(sessions, false)
 		expect(rootNodes.length).toBe(1)
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.session.id).toBe("root-1")
+			expect(first.data.id).toBe("root-1")
 		}
 	})
 
 	test("filters correctly for archived group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ session: createMockSession({ id: "root-1" }), status: undefined },
-			{ session: createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: undefined },
-			{ session: createMockSession({ id: "archived-child", time: { archived: 1234567891 }, parentID: "archived-1" }), status: undefined }
+			{ ...createMockSession({ id: "root-1" }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "archived-child", time: { archived: 1234567891 }, parentID: "archived-1" }), status: { type: "idle" } }
 		]
 		const rootNodes = getRootSessions(sessions, true)
 		expect(rootNodes.length).toBe(1)
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.session.id).toBe("archived-1")
+			expect(first.data.id).toBe("archived-1")
 		}
 	})
 })

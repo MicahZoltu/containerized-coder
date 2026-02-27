@@ -17,11 +17,11 @@
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
 		"outDir": "./output",
-		"rootDir": "./source",
+		"rootDir": "./",
 		"declaration": false,
 		"inlineSourceMap": true,
 		"inlineSources": true
 	},
-	"include": ["source/**/*"],
+	"include": ["source/**/*", "test/**/*"],
 	"exclude": ["node_modules", "output"]
 }

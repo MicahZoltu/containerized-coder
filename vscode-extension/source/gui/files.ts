@@ -20,14 +20,15 @@ export function fileDiffToTreeItem(diff: FileDiff) {
 	return item
 }
 
-export function getChangeIcon(diff: FileDiff): vscode.ThemeIcon {
-	if (diff.status === "added") {
-		return new vscode.ThemeIcon("diff-added")
-	} else if (diff.status === "deleted") {
-		return new vscode.ThemeIcon("diff-removed")
-	} else if (diff.status === "modified") {
-		return new vscode.ThemeIcon("diff-modified")
-	} else {
-		return new vscode.ThemeIcon("file")
+function getChangeIcon(diff: FileDiff): vscode.ThemeIcon {
+	switch (diff.status) {
+		case 'added':
+			return new vscode.ThemeIcon("diff-added")
+		case 'deleted':
+			return new vscode.ThemeIcon("diff-removed")
+		case 'modified':
+			return new vscode.ThemeIcon("diff-modified")
+		default:
+			return new vscode.ThemeIcon("file")
 	}
 }

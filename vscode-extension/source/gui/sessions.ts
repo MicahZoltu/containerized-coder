@@ -21,42 +21,39 @@ export function createSessionContext(): SessionContext {
 	return { getCurrentSessionId, selectSession, onChange, dispose }
 }
 
-export interface SessionWithStatus {
-	session: Session
-	status: SessionStatus | undefined
-}
+export type SessionWithStatus = Session & { status: SessionStatus }
 
 export type SessionTreeNode =
 	| { type: 'active-group' }
 	| { type: 'archived-group' }
 	| { type: 'session'; data: SessionWithStatus }
 
-export async function getSessionsWithStatuses(client: OpencodeClient): Promise<SessionWithStatus[]> {
+async function fetchSessionsWithStatuses(client: OpencodeClient): Promise<SessionWithStatus[]> {
 	const [sessionsResponse, statusesResponse] = await Promise.all([client.session.list(), client.session.status()])
 	const sessions = sessionsResponse.data ?? []
 	const statuses = statusesResponse.data ?? {}
-	return sessions.map(session => ({ session, status: statuses[session.id] }))
+	return sessions.map(session => ({ ...session, status: statuses[session.id] ?? { type: "idle" } }))
 }
 
-export async function getSessionChildrenFromServer(client: OpencodeClient, parentSessionId: string): Promise<SessionWithStatus[]> {
+async function fetchSessionChildrenFromServer(client: OpencodeClient, parentSessionId: string): Promise<SessionWithStatus[]> {
 	const [childrenResponse, statusesResponse] = await Promise.all([client.session.children({ sessionID: parentSessionId }), client.session.status()])
 	const children = childrenResponse.data ?? []
 	const statuses = statusesResponse.data ?? {}
-	return children.map(session => ({ session, status: statuses[session.id] }))
+	return children.map(session => ({ ...session, status: statuses[session.id] ?? { type: "idle" } }))
 }
 
-export const getSessions = async (client: OpencodeClient, element?: SessionTreeNode): Promise<SessionTreeNode[]> => {
+export const fetchSessions = async (client: OpencodeClient, element?: SessionTreeNode): Promise<SessionTreeNode[]> => {
 	switch (element?.type) {
 		case undefined:
 			return [{ type: 'active-group' }, { type: 'archived-group' }]
 		case 'active-group':
-			const activeSessions = await getSessionsWithStatuses(client)
+			const activeSessions = await fetchSessionsWithStatuses(client)
 			return getRootSessions(activeSessions, false)
 		case 'archived-group':
-			const archivedSessions = await getSessionsWithStatuses(client)
+			const archivedSessions = await fetchSessionsWithStatuses(client)
 			return getRootSessions(archivedSessions, true)
 		case 'session':
-			const children = await getSessionChildrenFromServer(client, element.data.session.id)
+			const children = await fetchSessionChildrenFromServer(client, element.data.id)
 			return children.map(s => ({ type: 'session', data: s }))
 		default:
 			throw new Error(`Unexpected element.type ${element satisfies never}`)
@@ -76,7 +73,7 @@ export function sessionNodeToTreeItem(node: SessionTreeNode): vscode.TreeItem {
 		item.contextValue = 'archived-group'
 		return item
 	}
-	const { session, status } = node.data
+	const { status, ...session } = node.data
 	const item = new vscode.TreeItem(session.title)
 	item.id = session.id
 	item.description = formatSessionDescription(session)
@@ -91,8 +88,7 @@ function formatSessionDescription(session: Session): string {
 	else return new Date(session.time.archived).toISOString().slice(0, 19).replace('T', ' ')
 }
 
-function getSessionStatusIcon(status: SessionStatus | undefined): string {
-	if (!status) return "debug-rerun"
+function getSessionStatusIcon(status: SessionStatus): string {
 	if (status.type === "busy") return "sync~spin"
 	if (status.type === "retry") return "error"
 	return "debug-rerun"
@@ -100,8 +96,8 @@ function getSessionStatusIcon(status: SessionStatus | undefined): string {
 
 export function getRootSessions(sessions: SessionWithStatus[], isArchivedGroup: boolean): SessionTreeNode[] {
 	return sessions
-		.filter(session => !session.session.parentID && !!session.session.time?.archived === isArchivedGroup)
-		.map(session => ({ type: 'session', data: session }))
+		.filter(s => !s.parentID && !!s.time?.archived === isArchivedGroup)
+		.map(s => ({ type: 'session', data: s }))
 }
 
 export async function createSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>) {
@@ -118,8 +114,8 @@ export async function renameSession(client: OpencodeClient, noticeError: (messag
 		vscode.window.showWarningMessage("Please select a session to rename")
 		return
 	}
-	const sessionID = node.data.session.id
-	const currentTitle = node.data.session.title
+	const sessionID = node.data.id
+	const currentTitle = node.data.title
 	const newTitle = await vscode.window.showInputBox({ prompt: "Enter new session title", placeHolder: "Session title", value: currentTitle })
 
 	if (!newTitle || newTitle === currentTitle) return
@@ -137,7 +133,7 @@ export async function archiveSession(client: OpencodeClient, noticeError: (messa
 		vscode.window.showWarningMessage("Please select a session to archive")
 		return
 	}
-	const sessionID = node.data.session.id
+	const sessionID = node.data.id
 
 	try {
 		await client.session.update({ sessionID, time: { archived: Math.floor(Date.now() / 1000) } })
@@ -152,7 +148,7 @@ export async function unarchiveSession(client: OpencodeClient, noticeError: (mes
 		vscode.window.showWarningMessage("Please select a session to unarchive")
 		return
 	}
-	const sessionID = node.data.session.id
+	const sessionID = node.data.id
 
 	try {
 		await client.session.update({ sessionID, time: { archived: 0 } })
@@ -167,7 +163,7 @@ export async function deleteSession(client: OpencodeClient, noticeError: (messag
 		vscode.window.showWarningMessage("Please select a session to delete")
 		return
 	}
-	const sessionID = node.data.session.id
+	const sessionID = node.data.id
 
 	const confirmed = await vscode.window.showWarningMessage("Are you sure you want to delete this session? This cannot be undone.", { modal: true }, "Yes")
 

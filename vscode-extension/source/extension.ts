@@ -3,7 +3,7 @@ import * as vscode from "vscode"
 import { fileDiffToTreeItem, getFileDiffs } from "./gui/files.js"
 import { selectModelWithQuickPicker } from "./gui/modelSelector.js"
 import type { SessionContext } from "./gui/sessions.js"
-import { archiveSession, createSession, createSessionContext, deleteSession, getSessions, renameSession, sessionNodeToTreeItem, unarchiveSession } from "./gui/sessions.js"
+import { archiveSession, createSession, createSessionContext, deleteSession, fetchSessions, renameSession, sessionNodeToTreeItem, unarchiveSession } from "./gui/sessions.js"
 import { getTodos, todoItemToTreeItem } from "./gui/todos.js"
 import { getModel, setModel } from "./opencode-helpers.js"
 import { createModelSelectorStatusBarItem } from "./statusbar.js"
@@ -154,7 +154,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const curriedSetModel = setModel.bind(undefined, client, noticeError, curriedGetModel)
 		const curriedGetTodos = getTodos.bind(undefined, client, sessionContext)
 		const curriedGetFileDiffs = getFileDiffs.bind(undefined, client, sessionContext)
-		const curriedGetSessions = getSessions.bind(undefined, client)
+		const curriedGetSessions = fetchSessions.bind(undefined, client)
 		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter)
 
 		const sessionOpenCommand = vscode.commands.registerCommand("opencode.session.open", openSessionPanel.bind(undefined, context))
@@ -169,7 +169,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const todoTreeView = vscode.window.createTreeView("opencode.todos", { treeDataProvider: { getTreeItem: todoItemToTreeItem, getChildren: curriedGetTodos, onDidChangeTreeData: todoEmitter.event }, showCollapseAll: false })
 		const fileDiffTreeView = vscode.window.createTreeView("opencode.files", { treeDataProvider: { getTreeItem: fileDiffToTreeItem, getChildren: curriedGetFileDiffs, onDidChangeTreeData: fileEmitter.event }, showCollapseAll: false })
 		const sessionsTreeView = vscode.window.createTreeView("opencode.sessions", { treeDataProvider: { getTreeItem: sessionNodeToTreeItem, getChildren: curriedGetSessions, onDidChangeTreeData: sessionsEmitter.event }, showCollapseAll: true })
-		sessionsTreeView.onDidChangeSelection(event => event.selection[0]?.type === 'session' && sessionContext.selectSession(event.selection[0].data.session.id))
+		sessionsTreeView.onDidChangeSelection(event => event.selection[0]?.type === 'session' && sessionContext.selectSession(event.selection[0].data.id))
 
 		context.subscriptions.push(
 			{ dispose: () => server.close() },

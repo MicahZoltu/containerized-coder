@@ -1,5 +1,6 @@
 import type { LanguageModelChat } from 'vscode';
 import * as vscode from 'vscode';
+import { expect } from 'bun:test'
 
 export function createMockExtensionContext(): vscode.ExtensionContext {
 	const subscriptions: vscode.Disposable[] = [];
@@ -78,4 +79,8 @@ export function createMockExtensionContext(): vscode.ExtensionContext {
 		languageModelAccessInformation,
 		asAbsolutePath: (p) => vscode.Uri.joinPath(extensionUri, p).fsPath
 	};
+}
+
+export function assert(x: unknown): asserts x {
+	expect(x).toBeTrue()
 }

@@ -34,7 +34,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 
 	test("creates tree item for active session node", () => {
 		const session = createMockSession({ id: "sess-123", title: "My Session" })
-		const node: SessionTreeNode = { type: 'session', data: { session, status: undefined } }
+		const node: SessionTreeNode = { type: 'session', data: { ...session, status: { type: "idle" } } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("sess-123")
 		expect(item.label).toBe("My Session")
@@ -52,7 +52,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 			title: "Archived Session",
 			time: { archived: 1234567890 }
 		})
-		const node: SessionTreeNode = { type: 'session', data: { session, status: undefined } }
+		const node: SessionTreeNode = { type: 'session', data: { ...session, status: { type: "idle" } } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("archived-1")
 		expect(item.contextValue).toBe('archived-session')
@@ -60,7 +60,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 
 	test("creates tree item for session with busy status", () => {
 		const session = createMockSession({ id: "busy-1" })
-		const node: SessionTreeNode = { type: 'session', data: { session, status: { type: "busy" } } }
+		const node: SessionTreeNode = { type: 'session', data: { ...session, status: { type: "busy" } } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("busy-1")
 		expect(item.contextValue).toBe('active-session')
@@ -70,43 +70,43 @@ describe("sessions - sessionNodeToTreeItem", () => {
 describe("sessions - getRootSessions", () => {
 	test("returns root sessions for active group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ session: createMockSession({ id: "root-1" }), status: undefined },
-			{ session: createMockSession({ id: "child-1", parentID: "root-1" }), status: undefined }
+			{ ...createMockSession({ id: "root-1" }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "child-1", parentID: "root-1" }), status: { type: "idle" } }
 		]
 		const rootNodes = getRootSessions(sessions, false)
 		expect(rootNodes.length).toBe(1)
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.session.id).toBe("root-1")
+			expect(first.data.id).toBe("root-1")
 		}
 	})
 
 	test("returns root sessions for archived group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ session: createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: undefined },
-			{ session: createMockSession({ id: "archived-child", time: { archived: 1234567891 }, parentID: "archived-1" }), status: undefined }
+			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "archived-child", time: { archived: 1234567891 }, parentID: "archived-1" }), status: { type: "idle" } }
 		]
 		const rootNodes = getRootSessions(sessions, true)
 		expect(rootNodes.length).toBe(1)
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.session.id).toBe("archived-1")
+			expect(first.data.id).toBe("archived-1")
 		}
 	})
 
 	test("excludes archived sessions from active group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ session: createMockSession({ id: "active-1" }), status: undefined },
-			{ session: createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: undefined }
+			{ ...createMockSession({ id: "active-1" }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } }
 		]
 		const rootNodes = getRootSessions(sessions, false)
 		expect(rootNodes.length).toBe(1)
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.session.id).toBe("active-1")
+			expect(first.data.id).toBe("active-1")
 		}
 	})
 })

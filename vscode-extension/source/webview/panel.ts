@@ -26,10 +26,6 @@ export function openSessionPanel(context: vscode.ExtensionContext, sessionID: st
 	return panel
 }
 
-export function postMessageToPanel(panel: vscode.WebviewPanel, message: Record<string, unknown>): void {
-	panel.webview.postMessage(message)
-}
-
 function getWebviewContent(webview: vscode.Webview, sessionID: string, sessionTitle: string): string {
 	const nonce = getNonce()
 
@@ -90,11 +86,6 @@ export function closeSessionPanel(sessionID: string): void {
 		panel.dispose()
 		sessionPanels.delete(sessionID)
 	}
-}
-
-// Function to get all open session panels (useful for cleanup)
-export function getAllSessionPanels(): vscode.WebviewPanel[] {
-	return Array.from(sessionPanels.values())
 }
 
 // Function to dispose all session panels (call on extension deactivate)

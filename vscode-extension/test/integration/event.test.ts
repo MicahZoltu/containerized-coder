@@ -1,19 +1,17 @@
 import { createOpencodeClient, type Event as SdkEvent, type Session, type UnknownError } from "@opencode-ai/sdk/v2"
-import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import { afterEach, describe, expect, test } from "bun:test"
 import * as vscode from 'vscode'
 import { handleSdkEvent } from "../../source/extension.js"
 import { createSessionContext } from "../../source/gui/sessions.js"
-import * as panel from '../../source/webview/panel.js'
+import { openSessionPanel } from '../../source/webview/panel.js'
 import { createMockExtensionContext } from "../helpers.js"
 import { mockLlm } from "./setup-mock-llm.js"
 import { server } from "./setup-opencode.mjs"
 
 describe("server SSE events", () => {
-	let sessionId: string
-
 	afterEach(async () => {
 		mockLlm.clear()
-		if (sessionId) {
+		for (const sessionId in await server.client.session.list()) {
 			await server.client.session.delete({ sessionID: sessionId }).catch(() => {})
 		}
 	})
@@ -31,9 +29,7 @@ describe("server SSE events", () => {
 
 		await new Promise((r) => setTimeout(r, 100))
 
-		const created = await server.client.session.create({})
-		sessionId = created.data!.id
-
+		await server.client.session.create({})
 		await new Promise((r) => setTimeout(r, 500))
 
 		const createdEvents = events.filter((e) => e.type === "session.created")
@@ -54,7 +50,7 @@ describe("server SSE events", () => {
 		await new Promise((r) => setTimeout(r, 100))
 
 		const created = await server.client.session.create({})
-		sessionId = created.data!.id
+		const sessionId = created.data!.id
 
 		await server.client.session.update({
 			sessionID: sessionId,
@@ -69,9 +65,6 @@ describe("server SSE events", () => {
 })
 
 describe("extension event handler", () => {
-	beforeEach(() => {
-	})
-
 	test("session.created triggers sessionsEmitter.fire", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
 		const sessionsEmitter = new vscode.EventEmitter<void>()
@@ -125,8 +118,7 @@ describe("extension event handler", () => {
 
 		const context = createMockExtensionContext()
 		const sessionID = "test-session-id"
-		panel.openSessionPanel(context, sessionID, "Test Session")
-		expect(panel.getAllSessionPanels().length).toBe(1)
+		const sessionPanel = openSessionPanel(context, sessionID, "Test Session")
 
 		const session: Session = {
 			id: sessionID,
@@ -143,7 +135,7 @@ describe("extension event handler", () => {
 		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, event)
 
 		expect(fireCount).toBe(1)
-		expect(panel.getAllSessionPanels().length).toBe(0)
+		expect(sessionPanel.disposed).toBe(true)
 		sessionsEmitter.dispose()
 	})
 
