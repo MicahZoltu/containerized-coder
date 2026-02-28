@@ -27,8 +27,8 @@ describe("sessions - fetchSessions (root)", () => {
 		if (first.type !== 'session') {
 			throw new Error('Expected first node to be a session')
 		}
-		expect(first.data.id).toBeDefined()
-		expect(first.data.title).toBeDefined()
+		expect(first.id).toBeDefined()
+		expect(first.title).toBeDefined()
 	})
 
 	test("includes status for each session", async () => {
@@ -41,7 +41,7 @@ describe("sessions - fetchSessions (root)", () => {
 		if (first.type !== 'session') {
 			throw new Error('Expected first node to be a session')
 		}
-		expect(first.data).toHaveProperty('status')
+		expect(first).toHaveProperty('status')
 	})
 })
 
@@ -53,7 +53,7 @@ describe("sessions - fetchSessions (children)", () => {
 		}
 		await server.client.session.create({ title: "Child Session", parentID: parent.data.id })
 
-		const parentNode: SessionTreeNode = { type: 'session', data: { ...parent.data, status: { type: "idle" } } }
+		const parentNode: SessionTreeNode = { type: 'session', ...parent.data, status: { type: "idle" } }
 		const childNodes = await fetchSessions(server.client, parentNode)
 		expect(childNodes.length).toBeGreaterThan(0)
 		const first = childNodes[0]
@@ -63,7 +63,7 @@ describe("sessions - fetchSessions (children)", () => {
 		if (first.type !== 'session') {
 			throw new Error('Expected first node to be a session')
 		}
-		expect(first.data.parentID).toBe(parent.data.id)
+		expect(first.parentID).toBe(parent.data.id)
 	})
 })
 
@@ -79,7 +79,7 @@ describe("sessions - fetchtRootSessions", () => {
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.id).toBe("root-1")
+			expect(first.id).toBe("root-1")
 		}
 	})
 
@@ -94,7 +94,7 @@ describe("sessions - fetchtRootSessions", () => {
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.id).toBe("archived-1")
+			expect(first.id).toBe("archived-1")
 		}
 	})
 })

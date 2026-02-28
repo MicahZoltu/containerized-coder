@@ -26,7 +26,7 @@ export type SessionWithStatus = Session & { status: SessionStatus }
 export type SessionTreeNode =
 	| { type: 'active-group' }
 	| { type: 'archived-group' }
-	| { type: 'session'; data: SessionWithStatus }
+	| { type: 'session' } & SessionWithStatus
 
 async function fetchSessionsWithStatuses(client: OpencodeClient): Promise<SessionWithStatus[]> {
 	const [sessionsResponse, statusesResponse] = await Promise.all([client.session.list(), client.session.status()])
@@ -53,8 +53,8 @@ export const fetchSessions = async (client: OpencodeClient, element?: SessionTre
 			const archivedSessions = await fetchSessionsWithStatuses(client)
 			return getRootSessions(archivedSessions, true)
 		case 'session':
-			const children = await fetchSessionChildrenFromServer(client, element.data.id)
-			return children.map(s => ({ type: 'session', data: s }))
+			const children = await fetchSessionChildrenFromServer(client, element.id)
+			return children.map(session => ({ type: 'session', ...session }))
 		default:
 			throw new Error(`Unexpected element.type ${element satisfies never}`)
 	}
@@ -73,13 +73,12 @@ export function sessionNodeToTreeItem(node: SessionTreeNode): vscode.TreeItem {
 		item.contextValue = 'archived-group'
 		return item
 	}
-	const { status, ...session } = node.data
-	const item = new vscode.TreeItem(session.title)
-	item.id = session.id
-	item.description = formatSessionDescription(session)
-	item.iconPath = new vscode.ThemeIcon(session.time.archived ? 'git-branch' : getSessionStatusIcon(status))
-	item.contextValue = session.time.archived ? 'archived-session' : 'active-session'
-	item.command = { command: "opencode.session.open", title: "Open Session", arguments: [session.id, session.title] }
+	const item = new vscode.TreeItem(node.title)
+	item.id = node.id
+	item.description = formatSessionDescription(node)
+	item.iconPath = new vscode.ThemeIcon(node.time.archived ? 'git-branch' : getSessionStatusIcon(node.status))
+	item.contextValue = node.time.archived ? 'archived-session' : 'active-session'
+	item.command = { command: "opencode.session.open", title: "Open Session", arguments: [node.id, node.title] }
 	return item
 }
 
@@ -97,7 +96,7 @@ function getSessionStatusIcon(status: SessionStatus): string {
 export function getRootSessions(sessions: SessionWithStatus[], isArchivedGroup: boolean): SessionTreeNode[] {
 	return sessions
 		.filter(s => !s.parentID && !!s.time?.archived === isArchivedGroup)
-		.map(s => ({ type: 'session', data: s }))
+		.map(session => ({ type: 'session', ...session }))
 }
 
 export async function createSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>) {
@@ -114,14 +113,14 @@ export async function renameSession(client: OpencodeClient, noticeError: (messag
 		vscode.window.showWarningMessage("Please select a session to rename")
 		return
 	}
-	const sessionID = node.data.id
-	const currentTitle = node.data.title
+	const sessionId = node.id
+	const currentTitle = node.title
 	const newTitle = await vscode.window.showInputBox({ prompt: "Enter new session title", placeHolder: "Session title", value: currentTitle })
 
 	if (!newTitle || newTitle === currentTitle) return
 
 	try {
-		await client.session.update({ sessionID, title: newTitle })
+		await client.session.update({ sessionID: sessionId, title: newTitle })
 		sessionsEmitter.fire()
 	} catch (error) {
 		noticeError("Failed to rename session", error)
@@ -133,10 +132,10 @@ export async function archiveSession(client: OpencodeClient, noticeError: (messa
 		vscode.window.showWarningMessage("Please select a session to archive")
 		return
 	}
-	const sessionID = node.data.id
+	const sessionId = node.id
 
 	try {
-		await client.session.update({ sessionID, time: { archived: Math.floor(Date.now() / 1000) } })
+		await client.session.update({ sessionID: sessionId, time: { archived: Math.floor(Date.now() / 1000) } })
 		sessionsEmitter.fire()
 	} catch (error) {
 		noticeError("Failed to archive session", error)
@@ -148,10 +147,10 @@ export async function unarchiveSession(client: OpencodeClient, noticeError: (mes
 		vscode.window.showWarningMessage("Please select a session to unarchive")
 		return
 	}
-	const sessionID = node.data.id
+	const sessionId = node.id
 
 	try {
-		await client.session.update({ sessionID, time: { archived: 0 } })
+		await client.session.update({ sessionID: sessionId, time: { archived: 0 } })
 		sessionsEmitter.fire()
 	} catch (error) {
 		noticeError("Failed to unarchive session", error)
@@ -163,16 +162,16 @@ export async function deleteSession(client: OpencodeClient, noticeError: (messag
 		vscode.window.showWarningMessage("Please select a session to delete")
 		return
 	}
-	const sessionID = node.data.id
+	const sessionId = node.id
 
 	const confirmed = await vscode.window.showWarningMessage("Are you sure you want to delete this session? This cannot be undone.", { modal: true }, "Yes")
 
 	if (confirmed !== "Yes") return
 
 	try {
-		await client.session.delete({ sessionID })
+		await client.session.delete({ sessionID: sessionId })
 		sessionsEmitter.fire()
-		if (sessionContext.getCurrentSessionId() === sessionID) {
+		if (sessionContext.getCurrentSessionId() === sessionId) {
 			sessionContext.selectSession(null)
 		}
 	} catch (error) {

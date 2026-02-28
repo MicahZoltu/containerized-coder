@@ -34,7 +34,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 
 	test("creates tree item for active session node", () => {
 		const session = createMockSession({ id: "sess-123", title: "My Session" })
-		const node: SessionTreeNode = { type: 'session', data: { ...session, status: { type: "idle" } } }
+		const node: SessionTreeNode = { type: 'session', ...session, status: { type: "idle" } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("sess-123")
 		expect(item.label).toBe("My Session")
@@ -52,7 +52,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 			title: "Archived Session",
 			time: { archived: 1234567890 }
 		})
-		const node: SessionTreeNode = { type: 'session', data: { ...session, status: { type: "idle" } } }
+		const node: SessionTreeNode = { type: 'session', ...session, status: { type: "idle" } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("archived-1")
 		expect(item.contextValue).toBe('archived-session')
@@ -60,7 +60,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 
 	test("creates tree item for session with busy status", () => {
 		const session = createMockSession({ id: "busy-1" })
-		const node: SessionTreeNode = { type: 'session', data: { ...session, status: { type: "busy" } } }
+		const node: SessionTreeNode = { type: 'session', ...session, status: { type: "busy" } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("busy-1")
 		expect(item.contextValue).toBe('active-session')
@@ -78,7 +78,7 @@ describe("sessions - getRootSessions", () => {
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.id).toBe("root-1")
+			expect(first.id).toBe("root-1")
 		}
 	})
 
@@ -92,7 +92,7 @@ describe("sessions - getRootSessions", () => {
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.id).toBe("archived-1")
+			expect(first.id).toBe("archived-1")
 		}
 	})
 
@@ -106,7 +106,7 @@ describe("sessions - getRootSessions", () => {
 		const first = rootNodes[0]
 		expect(first?.type).toBe('session')
 		if (first?.type === 'session') {
-			expect(first.data.id).toBe("active-1")
+			expect(first.id).toBe("active-1")
 		}
 	})
 })
