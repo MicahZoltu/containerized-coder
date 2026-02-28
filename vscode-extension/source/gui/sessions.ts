@@ -78,7 +78,7 @@ export function sessionNodeToTreeItem(node: SessionTreeNode): vscode.TreeItem {
 	item.description = formatSessionDescription(node)
 	item.iconPath = new vscode.ThemeIcon(node.time.archived ? 'git-branch' : getSessionStatusIcon(node.status))
 	item.contextValue = node.time.archived ? 'archived-session' : 'active-session'
-	item.command = { command: "opencode.session.open", title: "Open Session", arguments: [node.id, node.title] }
+	item.command = { command: "opencode.sessions.open", title: "Open Session", arguments: [node.id, node.title] }
 	return item
 }
 

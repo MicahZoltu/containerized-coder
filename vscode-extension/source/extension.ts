@@ -157,7 +157,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const curriedGetSessions = fetchSessions.bind(undefined, client)
 		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter)
 
-		const sessionOpenCommand = vscode.commands.registerCommand("opencode.session.open", openSessionPanel.bind(undefined, context))
+		const sessionOpenCommand = vscode.commands.registerCommand("opencode.sessions.open", openSessionPanel.bind(undefined, context))
 		const sessionSelectCommand = vscode.commands.registerCommand("opencode.model.select", selectModelWithQuickPicker.bind(undefined, client, noticeError, curriedSetModel))
 		const sessionCreateCommand = vscode.commands.registerCommand("opencode.sessions.create", createSession.bind(undefined, client, noticeError, sessionsEmitter))
 		const sessionRefreshCommand = vscode.commands.registerCommand("opencode.sessions.refresh", () => sessionsEmitter.fire())

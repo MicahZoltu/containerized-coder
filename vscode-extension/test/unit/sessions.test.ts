@@ -41,7 +41,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		expect(item.description).toBeDefined()
 		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
 		expect(item.contextValue).toBe('active-session')
-		expect(item.command?.command).toBe("opencode.session.open")
+		expect(item.command?.command).toBe("opencode.sessions.open")
 		expect(item.command?.arguments).toEqual(["sess-123", "My Session"])
 	})
 
