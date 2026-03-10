@@ -1,15 +1,15 @@
 import { type Event as SdkEvent, type Session } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
-import * as vscode from "vscode"
+import { EventEmitter } from '../../source/utils/emitter.js'
 import { handleSdkEvent, setupPeriodicRefresh } from "../../source/extension.js"
 import { createSessionContext } from "../../source/gui/sessions.js"
 
 describe("event handler", () => {
 	test("handleSdkEvent returns function that handles session.created", () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
 
 		const session: Session = {
 			id: "test",

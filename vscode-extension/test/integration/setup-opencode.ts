@@ -1,5 +1,5 @@
 import { createOpencodeClient } from "@opencode-ai/sdk/v2"
-import { afterAll, beforeAll } from "bun:test"
+import { afterAll, afterEach, beforeAll } from "bun:test"
 import * as fs from "fs/promises"
 import os from "os"
 import path from "path"
@@ -69,6 +69,7 @@ async function createTestServer(options: TestServerOptions) {
 	])
 
 	const proc = Bun.spawn([getOpencodeBin(), "serve", "--hostname=127.0.0.1", "--port=0"], {
+		cwd: baseDir,
 		detached: true,
 		env: {
 			PATH: "/usr/bin:/bin",
@@ -144,7 +145,7 @@ async function createTestServer(options: TestServerOptions) {
 				} catch {}
 			}
 
-			await fs.rm(baseDir, { recursive: true, force: true }).catch(() => {})
+			await fs.rm(baseDir, { recursive: true, force: true })
 		},
 	}
 }
@@ -154,6 +155,12 @@ export let server: TestServer
 
 beforeAll(async () => {
 	server = await createTestServer({ mockLlmUrl: mockLlm.url })
+})
+
+afterEach(async () => {
+	for (const sessionId in await server.client.session.list()) {
+		await server.client.session.delete({ sessionID: sessionId })
+	}
 })
 
 afterAll(async () => {

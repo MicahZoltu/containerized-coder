@@ -1,4 +1,4 @@
-import { afterAll, beforeAll } from 'bun:test'
+import { afterAll, afterEach, beforeAll } from 'bun:test'
 
 export type MockResponse = {
 	role: "assistant" | "tool"
@@ -197,6 +197,10 @@ export let mockLlm: ReturnType<typeof createMockLlmServer>
 
 beforeAll(async () => {
 	mockLlm = createMockLlmServer()
+})
+
+afterEach(async () => {
+	mockLlm.clear()
 })
 
 afterAll(async () => {

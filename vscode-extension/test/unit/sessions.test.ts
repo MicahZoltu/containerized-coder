@@ -1,9 +1,10 @@
+import type { Session } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
 import * as vscode from "vscode"
 import { getRootSessions, sessionNodeToTreeItem, type SessionTreeNode, type SessionWithStatus } from "../../source/gui/sessions.js"
 
-function createMockSession(overrides: any = {}): any {
-	return {
+function createMockSession(overrides: Partial<Session> = {}): SessionWithStatus {
+	const defaultSession: Session = {
 		id: "test",
 		slug: "test",
 		title: "Test Session",
@@ -11,8 +12,15 @@ function createMockSession(overrides: any = {}): any {
 		directory: "/tmp",
 		version: "1",
 		time: { created: 1700000000, updated: 1700000000 },
-		...overrides
 	}
+	const session = { ...defaultSession, ...overrides }
+	return { ...session, status: { type: "idle" } }
+}
+
+function createMockSessionTreeNode(overrides: Partial<SessionTreeNode> = {}): SessionTreeNode {
+	const base = createMockSession()
+	const sessionNode: SessionTreeNode = { type: 'session', ...base }
+	return { ...sessionNode, ...overrides }
 }
 
 describe("sessions - sessionNodeToTreeItem", () => {
@@ -33,8 +41,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 	})
 
 	test("creates tree item for active session node", () => {
-		const session = createMockSession({ id: "sess-123", title: "My Session" })
-		const node: SessionTreeNode = { type: 'session', ...session, status: { type: "idle" } }
+		const node = createMockSessionTreeNode({ id: "sess-123", title: "My Session" })
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("sess-123")
 		expect(item.label).toBe("My Session")
@@ -46,21 +53,19 @@ describe("sessions - sessionNodeToTreeItem", () => {
 	})
 
 	test("creates tree item for archived session", () => {
-		const session = createMockSession({
+		const node = createMockSessionTreeNode({
 			id: "archived-1",
 			slug: "archived-1",
 			title: "Archived Session",
-			time: { archived: 1234567890 }
+			time: { created: 1700000000, updated: 1700000001, archived: 1234567890 }
 		})
-		const node: SessionTreeNode = { type: 'session', ...session, status: { type: "idle" } }
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("archived-1")
 		expect(item.contextValue).toBe('archived-session')
 	})
 
 	test("creates tree item for session with busy status", () => {
-		const session = createMockSession({ id: "busy-1" })
-		const node: SessionTreeNode = { type: 'session', ...session, status: { type: "busy" } }
+		const node = createMockSessionTreeNode({ id: "busy-1", status: { type: "busy" } })
 		const item = sessionNodeToTreeItem(node)
 		expect(item.id).toBe("busy-1")
 		expect(item.contextValue).toBe('active-session')
@@ -70,8 +75,8 @@ describe("sessions - sessionNodeToTreeItem", () => {
 describe("sessions - getRootSessions", () => {
 	test("returns root sessions for active group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ ...createMockSession({ id: "root-1" }), status: { type: "idle" } },
-			{ ...createMockSession({ id: "child-1", parentID: "root-1" }), status: { type: "idle" } }
+			createMockSession({ id: "root-1" }),
+			createMockSession({ id: "child-1", parentID: "root-1" })
 		]
 		const rootNodes = getRootSessions(sessions, false)
 		expect(rootNodes.length).toBe(1)
@@ -84,8 +89,8 @@ describe("sessions - getRootSessions", () => {
 
 	test("returns root sessions for archived group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } },
-			{ ...createMockSession({ id: "archived-child", time: { archived: 1234567891 }, parentID: "archived-1" }), status: { type: "idle" } }
+			createMockSession({ id: "archived-1", time: { ...createMockSession().time, archived: 1234567890 } }),
+			createMockSession({ id: "archived-child", time: { ...createMockSession().time, archived: 1234567891 }, parentID: "archived-1" })
 		]
 		const rootNodes = getRootSessions(sessions, true)
 		expect(rootNodes.length).toBe(1)
@@ -98,8 +103,8 @@ describe("sessions - getRootSessions", () => {
 
 	test("excludes archived sessions from active group", () => {
 		const sessions: SessionWithStatus[] = [
-			{ ...createMockSession({ id: "active-1" }), status: { type: "idle" } },
-			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } }
+			createMockSession({ id: "active-1" }),
+			createMockSession({ id: "archived-1", time: { ...createMockSession().time, archived: 1234567890 } })
 		]
 		const rootNodes = getRootSessions(sessions, false)
 		expect(rootNodes.length).toBe(1)
@@ -108,5 +113,38 @@ describe("sessions - getRootSessions", () => {
 		if (first?.type === 'session') {
 			expect(first.id).toBe("active-1")
 		}
+	})
+})
+
+describe("sessions - sessionNodeToTreeItem edge cases", () => {
+	test("creates tree item for session with retry status", () => {
+		const node = createMockSessionTreeNode({
+			id: "retry-1",
+			status: { type: "retry", attempt: 1, message: "error", next: 0 }
+		})
+		const item = sessionNodeToTreeItem(node)
+		expect(item.id).toBe("retry-1")
+		expect(item.contextValue).toBe('active-session')
+		// retry status should show error icon
+		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
+	})
+
+	test("description shows updated time for active session", () => {
+		const node = createMockSessionTreeNode({
+			id: "active",
+			time: { created: 1700000000, updated: 1700000001 }
+		})
+		const item = sessionNodeToTreeItem(node)
+		// Should format updated time as YYYY-MM-DD HH:MM:SS
+		expect(item.description).toBe("2023-11-14 22:13:21")
+	})
+
+	test("description shows archived time for archived session", () => {
+		const node = createMockSessionTreeNode({
+			id: "archived",
+			time: { created: 1700000000, updated: 1700000001, archived: 1700000002 }
+		})
+		const item = sessionNodeToTreeItem(node)
+		expect(item.description).toBe("2023-11-14 22:13:22")
 	})
 })

@@ -1,18 +1,22 @@
+import type { Session, SessionStatus } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
-import { fetchSessions, getRootSessions, type SessionWithStatus, type SessionTreeNode } from "../../source/gui/sessions.js"
-import { server } from "./setup-opencode.mjs"
+import { fetchSessions, getRootSessions, type SessionTreeNode, type SessionWithStatus } from "../../source/gui/sessions.js"
+import { server } from "./setup-opencode.js"
 
-function createMockSession(overrides: any = {}): any {
-	return {
+function createMockSession(overrides: Partial<Session> = {}): Session & { status: SessionStatus } {
+	const baseTime = { created: 1700000000, updated: 1700000000 }
+	const base: Session = {
 		id: "test",
 		slug: "test",
 		title: "Test Session",
 		projectID: "proj",
 		directory: "/tmp",
 		version: "1",
-		time: { created: 1700000000, updated: 1700000000 },
-		...overrides
+		time: baseTime,
 	}
+	// Deep merge time if provided
+	const mergedTime = overrides.time ? { ...baseTime, ...overrides.time } : baseTime
+	return { ...base, ...overrides, time: mergedTime, status: { type: "idle" } }
 }
 
 describe("sessions - fetchSessions (root)", () => {
@@ -72,7 +76,7 @@ describe("sessions - fetchtRootSessions", () => {
 		const sessions: SessionWithStatus[] = [
 			{ ...createMockSession({ id: "root-1" }), status: { type: "idle" } },
 			{ ...createMockSession({ id: "child-1", parentID: "root-1" }), status: { type: "idle" } },
-			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } }
+			{ ...createMockSession({ id: "archived-1", time: { created: 1700000000, updated: 1700000000, archived: 1234567890 } }), status: { type: "idle" } }
 		]
 		const rootNodes = getRootSessions(sessions, false)
 		expect(rootNodes.length).toBe(1)
@@ -86,8 +90,8 @@ describe("sessions - fetchtRootSessions", () => {
 	test("filters correctly for archived group", () => {
 		const sessions: SessionWithStatus[] = [
 			{ ...createMockSession({ id: "root-1" }), status: { type: "idle" } },
-			{ ...createMockSession({ id: "archived-1", time: { archived: 1234567890 } }), status: { type: "idle" } },
-			{ ...createMockSession({ id: "archived-child", time: { archived: 1234567891 }, parentID: "archived-1" }), status: { type: "idle" } }
+			{ ...createMockSession({ id: "archived-1", time: { created: 1700000000, updated: 1700000000, archived: 1234567890 } }), status: { type: "idle" } },
+			{ ...createMockSession({ id: "archived-child", time: { created: 1700000000, updated: 1700000000, archived: 1234567891 }, parentID: "archived-1" }), status: { type: "idle" } }
 		]
 		const rootNodes = getRootSessions(sessions, true)
 		expect(rootNodes.length).toBe(1)

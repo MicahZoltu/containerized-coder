@@ -188,6 +188,7 @@ export class MockWindow {
 	statusBarItems: StatusBarItem[] = [];
 	private _windowStateEmitter: EventEmitter<{ focused: boolean }> | null = null;
 	private _windowStateEvent: EventWithDispose<{ focused: boolean }>;
+	private _outputChannels: Map<string, OutputChannel> = new Map();
 
 	constructor() {
 		// Initialize the window state event with a fresh emitter
@@ -205,6 +206,13 @@ export class MockWindow {
 		const item = new StatusBarItem(alignment, priority);
 		this.statusBarItems.push(item);
 		return item;
+	}
+
+	createOutputChannel(name: string): OutputChannel {
+		if (!this._outputChannels.has(name)) {
+			this._outputChannels.set(name, new OutputChannel(name));
+		}
+		return this._outputChannels.get(name)!;
 	}
 
 	createWebviewPanel(viewType: string, title: string, viewColumn: ViewColumn, options?: { enableScripts?: boolean; retainContextWhenHidden?: boolean; localResourceRoots?: Uri[] }): WebviewPanel {
@@ -345,4 +353,25 @@ export interface TreeDataProvider<T extends TreeItem = TreeItem> {
 export const enum ExtensionKind {
 	UI = 1,
 	Workspace = 2
+}
+
+// OutputChannel mock
+export class OutputChannel {
+	private _messages: string[] = [];
+	constructor(public name: string) {}
+	append(value: string): void {
+		this._messages.push(value);
+	}
+	appendLine(value: string): void {
+		this._messages.push(value + '\n');
+	}
+	clear(): void {
+		this._messages = [];
+	}
+	show?(): void {}
+	hide?(): void {}
+	dispose(): void {}
+	get length(): number {
+		return this._messages.join('').length;
+	}
 }

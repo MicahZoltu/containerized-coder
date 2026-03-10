@@ -1,6 +1,8 @@
 import { createOpencode, type OpencodeClient, type Event as SdkEvent } from "@opencode-ai/sdk/v2"
 import * as vscode from "vscode"
-import { fileDiffToTreeItem, getFileDiffs } from "./gui/files.js"
+import { EventEmitter } from "./utils/emitter.js"
+import { fileDiffToTreeItem } from "./gui/files.js"
+import { getFileDiffs } from "./gui-support/getFileDiffs.js"
 import { selectModelWithQuickPicker } from "./gui/modelSelector.js"
 import type { SessionContext } from "./gui/sessions.js"
 import { archiveSession, createSession, createSessionContext, deleteSession, fetchSessions, renameSession, sessionNodeToTreeItem, unarchiveSession } from "./gui/sessions.js"
@@ -8,22 +10,10 @@ import { getTodos, todoItemToTreeItem } from "./gui/todos.js"
 import { getModel, setModel } from "./opencode-helpers.js"
 import { createModelSelectorStatusBarItem } from "./statusbar.js"
 import { nowAsString } from "./utils.js"
-import { isPlainObject } from "./utils/typeGuards.js"
+import { isSdkEvent } from "./utils/sdkEventGuards.js"
 import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "./webview/panel.js"
 
-let refreshIntervalId: NodeJS.Timeout | null = null
-
-function isSdkEvent(obj: unknown): obj is SdkEvent {
-	if (!isPlainObject(obj)) return false
-	if (typeof obj.type !== 'string') return false
-	const props = obj.properties
-	if (props !== undefined && props !== null) {
-		if (!isPlainObject(props)) return false
-	}
-	return true
-}
-
-export function handleSdkEvent(noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, sessionContext: SessionContext, todoEmitter: vscode.EventEmitter<void>, fileEmitter: vscode.EventEmitter<void>, event: SdkEvent) {
+export function handleSdkEvent(noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>, sessionContext: SessionContext, todoEmitter: EventEmitter<void>, fileEmitter: EventEmitter<void>, event: SdkEvent) {
 	const eventType = event.type
 
 	switch (eventType) {
@@ -62,12 +52,12 @@ export function handleSdkEvent(noticeError: (message: string, error: unknown) =>
 	}
 }
 
-export async function startListeningForOpencodeEvents(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, noticeInfo: (message: string) => void, sdkEventHandler: (event: SdkEvent) => void): Promise<vscode.Disposable[]> {
-	const disposables: vscode.Disposable[] = []
+export async function startListeningForOpencodeEvents(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, noticeInfo: (message: string) => void, sdkEventHandler: (event: SdkEvent) => void) {
+	const disposables: { dispose: () => void }[] = []
 
 	try {
 		const sse = await client.event.subscribe()
-		const emitter = new vscode.EventEmitter<SdkEvent>()
+		const emitter = new EventEmitter<SdkEvent>(noticeError)
 		const listener = emitter.event(sdkEventHandler)
 		disposables.push(listener, emitter)
 
@@ -96,12 +86,11 @@ export async function startListeningForOpencodeEvents(client: OpencodeClient, no
 	return disposables
 }
 
-export function setupPeriodicRefresh(refreshFn: () => Promise<unknown>, noticeError: (message: string, error: unknown) => void): vscode.Disposable {
-	refreshIntervalId = setInterval(() => { refreshFn().catch(error => noticeError("Periodic refresh failed", error)) }, 10000)
+export function setupPeriodicRefresh(refreshFn: () => Promise<unknown>, noticeError: (message: string, error: unknown) => void) {
+	const refreshIntervalId = setInterval(() => { refreshFn().catch(error => noticeError("Periodic refresh failed", error)) }, 10000)
 	const dispose = () => {
 		if (!refreshIntervalId) return
 		clearInterval(refreshIntervalId)
-		refreshIntervalId = null
 	}
 
 	return { dispose }
@@ -138,16 +127,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	try {
 		noticeInfo("OpenCode extension activating...")
 
-		const { client, server } = await createOpencode()
+	const { client, server } = await createOpencode()
 
 		const modelSelector = createModelSelectorStatusBarItem()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionContext = createSessionContext(noticeError)
+		const todoEmitter = new EventEmitter<void>(noticeError)
 		sessionContext.onChange(() => todoEmitter.fire())
-		const fileEmitter = new vscode.EventEmitter<void>()
+		const fileEmitter = new EventEmitter<void>(noticeError)
 		sessionContext.onChange(() => fileEmitter.fire())
 
-		const sessionsEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(noticeError)
 
 		const onModelNameChanged = async (newModelName: string) => modelSelector.setModelName(newModelName)
 		const curriedGetModel = getModel.bind(undefined, client, noticeError, onModelNameChanged)

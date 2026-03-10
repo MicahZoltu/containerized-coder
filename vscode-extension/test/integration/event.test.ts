@@ -1,21 +1,13 @@
 import { createOpencodeClient, type Event as SdkEvent, type Session, type UnknownError } from "@opencode-ai/sdk/v2"
-import { afterEach, describe, expect, test } from "bun:test"
-import * as vscode from 'vscode'
+import { describe, expect, test } from "bun:test"
+import { EventEmitter } from '../../source/utils/emitter.js'
 import { handleSdkEvent } from "../../source/extension.js"
 import { createSessionContext } from "../../source/gui/sessions.js"
 import { openSessionPanel } from '../../source/webview/panel.js'
 import { createMockExtensionContext } from "../helpers.js"
-import { mockLlm } from "./setup-mock-llm.js"
-import { server } from "./setup-opencode.mjs"
+import { server } from "./setup-opencode.js"
 
 describe("server SSE events", () => {
-	afterEach(async () => {
-		mockLlm.clear()
-		for (const sessionId in await server.client.session.list()) {
-			await server.client.session.delete({ sessionID: sessionId }).catch(() => {})
-		}
-	})
-
 	test("subscribe to events", async () => {
 		const events: SdkEvent[] = []
 
@@ -67,10 +59,10 @@ describe("server SSE events", () => {
 describe("extension event handler", () => {
 	test("session.created triggers sessionsEmitter.fire", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -88,10 +80,10 @@ describe("extension event handler", () => {
 
 	test("session.updated triggers sessionsEmitter.fire", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -108,10 +100,10 @@ describe("extension event handler", () => {
 	})
 
 	test("session.deleted triggers sessionsEmitter.fire and closes panel", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -140,10 +132,10 @@ describe("extension event handler", () => {
 	})
 
 	test("todo.updated triggers todos refresh only for matching session", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		sessionContext.selectSession("selected-session")
 
@@ -163,10 +155,10 @@ describe("extension event handler", () => {
 	})
 
 	test("session.diff triggers fileEmitter.fire only for matching session", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		sessionContext.selectSession("selected-session")
 
@@ -183,10 +175,10 @@ describe("extension event handler", () => {
 	})
 
 	test("session.status triggers sessionsEmitter.fire", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -203,10 +195,10 @@ describe("extension event handler", () => {
 	})
 
 	test("session.idle triggers sessionsEmitter.fire", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -220,10 +212,10 @@ describe("extension event handler", () => {
 	})
 
 	test("session.error shows error message", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		const showErrorCalls: unknown[] = []
 		const noticeError = (_: string, message: unknown) => showErrorCalls.push(message)
@@ -246,10 +238,10 @@ describe("extension event handler", () => {
 	})
 
 	test("unknown event types are ignored", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
-		const fileEmitter = new vscode.EventEmitter<void>()
-		const sessionContext = createSessionContext()
-		const todoEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+		const fileEmitter = new EventEmitter<void>(() => {})
+		const sessionContext = createSessionContext(() => {})
+		const todoEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }

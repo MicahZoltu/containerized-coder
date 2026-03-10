@@ -12,7 +12,8 @@ export async function getModelList(client: OpencodeClient, noticeError: (message
 				models.push({ provider: provider.id, model: modelId })
 			}
 		}
-		return models
+		const mappedModels = models.map(model => ({ label: `${model.provider}/${model.model}`, description: model.provider, alwaysShow: true }))
+		return mappedModels
 	} catch (error) {
 		noticeError('Failed to get model list from server', error)
 		return []

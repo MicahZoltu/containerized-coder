@@ -11,7 +11,7 @@
             "name": "Debug Test",
             "program": "${file}",
             "cwd": "${workspaceFolder}/vscode-extension/",
-			"args": ["--preload", "./test/integration/setup-mock-llm.ts", "--preload", "./test/integration/setup-opencode.mts", "--preload", "./test/integration/setup-vscode-mock.ts"],
+			"args": ["--preload", "./test/integration/setup-mock-llm.ts", "--preload", "./test/integration/setup-opencode.ts", "--preload", "./test/integration/setup-vscode-mock.ts"],
             "stopOnEntry": false,
             "watchMode": false
         },

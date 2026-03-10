@@ -1,23 +1,25 @@
 import { OpencodeClient, Session, SessionStatus } from "@opencode-ai/sdk/v2"
 import * as vscode from "vscode"
+import { EventEmitter } from "../utils/emitter.js"
 
 export interface SessionContext {
 	getCurrentSessionId(): string | null
 	selectSession(id: string | null): void
-	onChange: vscode.Event<string | null>
+	onChange: EventEmitter<string | null>['event']
 	dispose(): void
 }
 
-export function createSessionContext(): SessionContext {
+export function createSessionContext(noticeError: (message: string, error: unknown) => void): SessionContext {
 	let currentSessionId: string | null = null
-	const emitter = new vscode.EventEmitter<string | null>()
+	const emitter = new EventEmitter<string | null>(noticeError)
 	const getCurrentSessionId = () => currentSessionId
 	const selectSession = (id: string | null) => {
+		if (currentSessionId === id) return
 		currentSessionId = id
 		emitter.fire(id)
 	}
-	const onChange = emitter.event
-	const dispose = emitter.dispose
+	const onChange = emitter.event.bind(emitter)
+	const dispose = emitter.dispose.bind(emitter)
 	return { getCurrentSessionId, selectSession, onChange, dispose }
 }
 
@@ -83,8 +85,8 @@ export function sessionNodeToTreeItem(node: SessionTreeNode): vscode.TreeItem {
 }
 
 function formatSessionDescription(session: Session): string {
-	if (!session.time.archived) return new Date(session.time.updated).toISOString().slice(0, 19).replace('T', ' ')
-	else return new Date(session.time.archived).toISOString().slice(0, 19).replace('T', ' ')
+	if (!session.time.archived) return new Date(session.time.updated * 1000).toISOString().slice(0, 19).replace('T', ' ')
+	else return new Date(session.time.archived * 1000).toISOString().slice(0, 19).replace('T', ' ')
 }
 
 function getSessionStatusIcon(status: SessionStatus): string {
@@ -99,7 +101,7 @@ export function getRootSessions(sessions: SessionWithStatus[], isArchivedGroup: 
 		.map(session => ({ type: 'session', ...session }))
 }
 
-export async function createSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>) {
+export async function createSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>) {
 	try {
 		await client.session.create({})
 		sessionsEmitter.fire()
@@ -108,7 +110,7 @@ export async function createSession(client: OpencodeClient, noticeError: (messag
 	}
 }
 
-export async function renameSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, node?: SessionTreeNode) {
+export async function renameSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>, node?: SessionTreeNode) {
 	if (node?.type !== 'session') {
 		vscode.window.showWarningMessage("Please select a session to rename")
 		return
@@ -127,7 +129,7 @@ export async function renameSession(client: OpencodeClient, noticeError: (messag
 	}
 }
 
-export async function archiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, node?: SessionTreeNode) {
+export async function archiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>, node?: SessionTreeNode) {
 	if (node?.type !== 'session') {
 		vscode.window.showWarningMessage("Please select a session to archive")
 		return
@@ -142,7 +144,7 @@ export async function archiveSession(client: OpencodeClient, noticeError: (messa
 	}
 }
 
-export async function unarchiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, node?: SessionTreeNode) {
+export async function unarchiveSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>, node?: SessionTreeNode) {
 	if (node?.type !== 'session') {
 		vscode.window.showWarningMessage("Please select a session to unarchive")
 		return
@@ -157,7 +159,7 @@ export async function unarchiveSession(client: OpencodeClient, noticeError: (mes
 	}
 }
 
-export async function deleteSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: vscode.EventEmitter<void>, sessionContext: SessionContext, node?: SessionTreeNode) {
+export async function deleteSession(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>, sessionContext: SessionContext, node?: SessionTreeNode) {
 	if (node?.type !== 'session') {
 		vscode.window.showWarningMessage("Please select a session to delete")
 		return

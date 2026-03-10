@@ -1,16 +1,9 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { mockLlm } from "./setup-mock-llm.js"
-import { server } from "./setup-opencode.mjs"
+import { server } from "./setup-opencode.js"
 
 describe("opencode integration", () => {
 	let sessionId: string
-
-	afterEach(async () => {
-		mockLlm.clear()
-		if (sessionId) {
-			await server.client.session.delete({ sessionID: sessionId }).catch(() => {})
-		}
-	})
 
 	test("spawns opencode server and connects via SDK", async () => {
 		expect(server.url).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)

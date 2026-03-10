@@ -1,11 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { mockLlm } from "./setup-mock-llm.js"
 
 describe("mock-llm server", () => {
-	afterEach(() => {
-		mockLlm.clear()
-	})
-
 	test("responds with default response when no routes match", async () => {
 		mockLlm.setDefault({ role: "assistant", content: "Default response" })
 

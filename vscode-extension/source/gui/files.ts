@@ -1,17 +1,5 @@
-import { FileDiff, OpencodeClient } from "@opencode-ai/sdk/v2"
+import { FileDiff } from "@opencode-ai/sdk/v2"
 import * as vscode from "vscode"
-import { SessionContext } from "./sessions.js"
-
-export async function getFileDiffs(client: OpencodeClient, session: SessionContext, root?: FileDiff): Promise<FileDiff[]> {
-	if (root !== undefined) return []
-
-	const sessionId = session.getCurrentSessionId()
-	if (sessionId === null) return []
-
-	const result = await client.session.diff({ sessionID: sessionId })
-
-	return result.data ?? []
-}
 
 export function fileDiffToTreeItem(diff: FileDiff) {
 	const item = new vscode.TreeItem(diff.file, vscode.TreeItemCollapsibleState.None)

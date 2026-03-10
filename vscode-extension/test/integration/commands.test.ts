@@ -1,13 +1,14 @@
 import { createOpencodeClient } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
 import * as vscode from "vscode"
+import { EventEmitter } from '../../source/utils/emitter.js'
 import { createSessionContext } from "../../source/gui/sessions.js"
-import { server } from "./setup-opencode.mjs"
+import { server } from "./setup-opencode.js"
 
 describe("commands", () => {
 	test("opencode.sessions.create calls client.session.create without title and fires emitter", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
-		const sessionsEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -22,7 +23,7 @@ describe("commands", () => {
 
 	test("opencode.sessions.rename validates input and updates", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
-		const sessionsEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
 
 		const createRes = await client.session.create({ title: "Original" })
 		const sessionId = createRes.data!.id
@@ -53,7 +54,7 @@ describe("commands", () => {
 
 	test("opencode.sessions.archive confirms and calls share", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
-		const sessionsEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
 
 		const createRes = await client.session.create({ title: "To Archive" })
 		const sessionId = createRes.data!.id
@@ -83,7 +84,7 @@ describe("commands", () => {
 
 	test("opencode.sessions.unarchive calls unshare", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
-		const sessionsEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
 
 		const createRes = await client.session.create({ title: "To Unarchive" })
 		const sessionId = createRes.data!.id
@@ -104,8 +105,8 @@ describe("commands", () => {
 
 	test("opencode.sessions.delete confirms and deletes", async () => {
 		const client = createOpencodeClient({ baseUrl: server.url })
-		const sessionContext = createSessionContext()
-		const sessionsEmitter = new vscode.EventEmitter<void>()
+		const sessionContext = createSessionContext(() => {})
+		const sessionsEmitter = new EventEmitter<void>(() => {})
 
 		sessionContext.selectSession("some-id")
 
@@ -133,7 +134,7 @@ describe("commands", () => {
 	})
 
 	test("opencode.sessions.refresh fires emitter", async () => {
-		const sessionsEmitter = new vscode.EventEmitter<void>()
+		const sessionsEmitter = new EventEmitter<void>(() => {})
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }

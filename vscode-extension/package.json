@@ -23,7 +23,7 @@
 		"package": "bun run build && bun run scripts/package.ts",
 		"typecheck": "bun --bun tsc --noEmit --project tsconfig.json",
 		"test": "bun run test:unit && bun run integration",
-		"integration": "bun test --preload ./test/integration/setup-mock-llm.ts --preload ./test/integration/setup-opencode.mts --preload ./test/integration/setup-vscode-mock.ts test/integration/",
+		"integration": "bun test --preload ./test/integration/setup-mock-llm.ts --preload ./test/integration/setup-opencode.ts --preload ./test/integration/setup-vscode-mock.ts test/integration/",
 		"test:unit": "bun test --preload ./test/integration/setup-vscode-mock.ts test/unit/"
 	},
 	"devDependencies": {
