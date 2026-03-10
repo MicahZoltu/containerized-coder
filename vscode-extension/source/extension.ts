@@ -56,14 +56,14 @@ export async function startListeningForOpencodeEvents(client: OpencodeClient, no
 	const disposables: { dispose: () => void }[] = []
 
 	try {
-		const sse = await client.event.subscribe()
+		const eventSubscription = await client.event.subscribe()
 		const emitter = new EventEmitter<SdkEvent>(noticeError)
 		const listener = emitter.event(sdkEventHandler)
 		disposables.push(listener, emitter)
 
 		const backgroundStreamPumper = async () => {
 			try {
-				for await (const event of sse.stream) {
+				for await (const event of eventSubscription.stream) {
 					if (isSdkEvent(event)) {
 						emitter.fire(event)
 					} else {

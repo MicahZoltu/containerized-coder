@@ -4,9 +4,9 @@ import { isPlainObject } from "../utils/typeGuards.js"
 export function isSdkEvent(obj: unknown): obj is SdkEvent {
 	if (!isPlainObject(obj)) return false
 	if (typeof obj.type !== 'string') return false
-	const props = obj.properties
-	if (props !== undefined && props !== null) {
-		if (!isPlainObject(props)) return false
+	const properties = obj.properties
+	if (properties !== undefined && properties !== null) {
+		if (!isPlainObject(properties)) return false
 	}
 	return true
 }

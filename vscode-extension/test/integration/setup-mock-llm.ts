@@ -37,10 +37,10 @@ function createMockLlmServer() {
 				const body = (await req.json()) as { stream?: boolean; messages?: unknown[] }
 
 				const userMessage = getLastUserMessage(body.messages ?? [])
-				const matches = routes.filter((r) => userMessage?.toLowerCase().includes(r.match.toLowerCase()))
+				const matches = routes.filter((route) => userMessage?.toLowerCase().includes(route.match.toLowerCase()))
 
 				if (matches.length > 1) {
-					return Response.json({ error: { type: "mock_error", message: `Multiple routes matched: ${matches.map((r) => `"${r.match}"`).join(", ")}` } }, { status: 500 })
+					return Response.json({ error: { type: "mock_error", message: `Multiple routes matched: ${matches.map((route) => `"${route.match}"`).join(", ")}` } }, { status: 500 })
 				}
 
 				const response = matches.length === 1 ? matches[0]!.response : defaultResponse
@@ -120,7 +120,7 @@ function createStreamingResponse(mock: MockResponse) {
 	}
 
 	if (mock.tool_calls) {
-		for (const tc of mock.tool_calls) {
+		for (const toolCall of mock.tool_calls) {
 			chunks.push({
 				id,
 				object: "chat.completion.chunk",
@@ -133,8 +133,8 @@ function createStreamingResponse(mock: MockResponse) {
 							tool_calls: [
 								{
 									index: 0,
-									id: tc.id,
-									function: { name: tc.function.name, arguments: "" },
+									id: toolCall.id,
+									function: { name: toolCall.function.name, arguments: "" },
 								},
 							],
 						},
@@ -154,7 +154,7 @@ function createStreamingResponse(mock: MockResponse) {
 							tool_calls: [
 								{
 									index: 0,
-									function: { arguments: tc.function.arguments },
+									function: { arguments: toolCall.function.arguments },
 								},
 							],
 						},

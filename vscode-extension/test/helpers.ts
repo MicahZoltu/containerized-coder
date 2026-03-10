@@ -73,7 +73,7 @@ export function createMockExtensionContext(): vscode.ExtensionContext {
 			activate: () => Promise.resolve()
 		} as vscode.Extension<unknown>,
 		languageModelAccessInformation,
-		asAbsolutePath: (p) => vscode.Uri.joinPath(extensionUri, p).fsPath
+		asAbsolutePath: (relativePath) => vscode.Uri.joinPath(extensionUri, relativePath).fsPath
 	}
 }
 

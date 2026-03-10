@@ -5,22 +5,22 @@ export type Event<T = unknown> = (listener: (arg: T) => void) => Disposable
 export type EventWithDispose<T> = Event<T> & { dispose: () => void }
 
 export class EventEmitter<T> {
-	private listeners: Array<(e: T) => void> = []
+	private eventListeners: Array<(eventArgument: T) => void> = []
 
-	event(listener: (e: T) => void): Disposable {
-		this.listeners.push(listener)
+	event(listener: (eventArgument: T) => void): Disposable {
+		this.eventListeners.push(listener)
 		return {
 			dispose: () => {
-				const idx = this.listeners.indexOf(listener)
-				if (idx >= 0) this.listeners.splice(idx, 1)
+				const listenerIndex = this.eventListeners.indexOf(listener)
+				if (listenerIndex >= 0) this.eventListeners.splice(listenerIndex, 1)
 			}
 		}
 	}
 
-	fire(e: T): void {
-		for (const listener of this.listeners) {
+	fire(eventArgument: T): void {
+		for (const listener of this.eventListeners) {
 			try {
-				listener(e)
+				listener(eventArgument)
 			} catch (error) {
 				console.error("Event listener error:", error)
 			}
@@ -28,7 +28,7 @@ export class EventEmitter<T> {
 	}
 
 	dispose(): void {
-		this.listeners = []
+		this.eventListeners = []
 	}
 }
 

@@ -97,7 +97,7 @@ function getSessionStatusIcon(status: SessionStatus): string {
 
 export function getRootSessions(sessions: SessionWithStatus[], isArchivedGroup: boolean): SessionTreeNode[] {
 	return sessions
-		.filter(s => !s.parentID && !!s.time?.archived === isArchivedGroup)
+		.filter(session => !session.parentID && !!session.time?.archived === isArchivedGroup)
 		.map(session => ({ type: 'session', ...session }))
 }
 
