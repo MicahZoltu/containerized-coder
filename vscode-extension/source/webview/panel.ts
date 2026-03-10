@@ -1,26 +1,21 @@
 import * as vscode from "vscode"
 import { getNonce } from "../utils.js"
 
-// Map to track open session panels: sessionID -> WebviewPanel
 const sessionPanels = new Map<string, vscode.WebviewPanel>()
 
 export function openSessionPanel(context: vscode.ExtensionContext, sessionID: string, sessionTitle: string): vscode.WebviewPanel {
-	// Check if panel already exists for this session
 	const existingPanel = sessionPanels.get(sessionID)
 	if (existingPanel) {
 		existingPanel.reveal()
 		return existingPanel
 	}
 
-	// Create new panel for this session
 	const panel = vscode.window.createWebviewPanel(`opencodeSession-${sessionID}`, sessionTitle, vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [context.extensionUri] })
 
 	panel.webview.html = getWebviewContent(panel.webview, sessionID, sessionTitle)
 
-	// Store in map for future reuse
 	sessionPanels.set(sessionID, panel)
 
-	// When panel is closed, remove from map
 	panel.onDidDispose(() => sessionPanels.delete(sessionID), null)
 
 	return panel
@@ -79,7 +74,6 @@ function getWebviewContent(webview: vscode.Webview, sessionID: string, sessionTi
 </html>`
 }
 
-// Function to close a session's webview if it exists
 export function closeSessionPanel(sessionID: string): void {
 	const panel = sessionPanels.get(sessionID)
 	if (panel) {
@@ -88,7 +82,6 @@ export function closeSessionPanel(sessionID: string): void {
 	}
 }
 
-// Function to dispose all session panels (call on extension deactivate)
 export function disposeAllSessionPanels(): void {
 	for (const panel of sessionPanels.values()) {
 		panel.dispose()

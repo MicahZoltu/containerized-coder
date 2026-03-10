@@ -1,107 +1,100 @@
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import * as vscode from "vscode";
-import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "../../source/webview/panel.js";
-import { createMockExtensionContext } from "../helpers.js";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
+import * as vscode from "vscode"
+import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "../../source/webview/panel.js"
+import { createMockExtensionContext } from "../helpers.js"
 
 describe("webview panel management", () => {
 	beforeEach(() => {
-		disposeAllSessionPanels();
-	});
+		disposeAllSessionPanels()
+	})
 
 	afterEach(() => {
-		disposeAllSessionPanels();
-	});
+		disposeAllSessionPanels()
+	})
 
 	test("openSessionPanel creates new panel with correct properties", () => {
-		const context = createMockExtensionContext();
-		const sessionID = "session-123";
-		const sessionTitle = "Test Session";
+		const context = createMockExtensionContext()
+		const sessionID = "session-123"
+		const sessionTitle = "Test Session"
 
-		const panel = openSessionPanel(context, sessionID, sessionTitle);
+		const panel = openSessionPanel(context, sessionID, sessionTitle)
 
-		expect(panel).toBeDefined();
-		expect(panel.viewType).toBe(`opencodeSession-${sessionID}`);
-		expect(panel.title).toBe(sessionTitle);
-		expect(panel.viewColumn).toBe(vscode.ViewColumn.One);
-		expect(panel.webview.html).toContain(sessionTitle);
-	});
+		expect(panel).toBeDefined()
+		expect(panel.viewType).toBe(`opencodeSession-${sessionID}`)
+		expect(panel.title).toBe(sessionTitle)
+		expect(panel.viewColumn).toBe(vscode.ViewColumn.One)
+		expect(panel.webview.html).toContain(sessionTitle)
+	})
 
 	test("openSessionPanel includes nonce in HTML for CSP", () => {
-		const context = createMockExtensionContext();
-		const panel = openSessionPanel(context, "sess-1", "Title");
-		const html = panel.webview.html;
-		expect(html).toContain("Content-Security-Policy");
-		expect(html).toContain("nonce=");
-	});
+		const context = createMockExtensionContext()
+		const panel = openSessionPanel(context, "sess-1", "Title")
+		const html = panel.webview.html
+		expect(html).toContain("Content-Security-Policy")
+		expect(html).toContain("nonce=")
+	})
 
 	test("openSessionPanel reuses existing panel for same session", () => {
-		const context = createMockExtensionContext();
-		const panel1 = openSessionPanel(context, "s1", "Session 1");
-		const panel2 = openSessionPanel(context, "s1", "Session 1");
-		expect(panel1).toBe(panel2);
-	});
+		const context = createMockExtensionContext()
+		const panel1 = openSessionPanel(context, "s1", "Session 1")
+		const panel2 = openSessionPanel(context, "s1", "Session 1")
+		expect(panel1).toBe(panel2)
+	})
 
 	test("openSessionPanel creates separate panels for different sessions", () => {
-		const context = createMockExtensionContext();
-		const panel1 = openSessionPanel(context, "s1", "Session 1");
-		const panel2 = openSessionPanel(context, "s2", "Session 2");
-		expect(panel1).not.toBe(panel2);
-	});
+		const context = createMockExtensionContext()
+		const panel1 = openSessionPanel(context, "s1", "Session 1")
+		const panel2 = openSessionPanel(context, "s2", "Session 2")
+		expect(panel1).not.toBe(panel2)
+	})
 
 	test("closeSessionPanel disposes panel", () => {
-		const context = createMockExtensionContext();
-		const panel = openSessionPanel(context, "s1", "Session 1");
-		expect(panel.disposed).toBe(false);
-		closeSessionPanel("s1");
-		expect(panel.disposed).toBe(true);
-		const newPanel = openSessionPanel(context, "s1", "Session 1 New");
-		expect(newPanel.disposed).toBe(false);
-		expect(newPanel).not.toBe(panel);
-	});
+		const context = createMockExtensionContext()
+		const panel = openSessionPanel(context, "s1", "Session 1")
+		expect(panel.disposed).toBe(false)
+		closeSessionPanel("s1")
+		expect(panel.disposed).toBe(true)
+		const newPanel = openSessionPanel(context, "s1", "Session 1 New")
+		expect(newPanel.disposed).toBe(false)
+		expect(newPanel).not.toBe(panel)
+	})
 
 	test("closeSessionPanel does nothing for non-existent session", () => {
-		const context = createMockExtensionContext();
-		// Create a panel for a different session
-		const panel = openSessionPanel(context, "existing-session", "Existing");
-		expect(panel.disposed).toBe(false);
-		// Try to close a session that doesn't exist
-		closeSessionPanel("non-existent");
-		// The existing panel should still be open
-		expect(panel.disposed).toBe(false);
-	});
+		const context = createMockExtensionContext()
+		const panel = openSessionPanel(context, "existing-session", "Existing")
+		expect(panel.disposed).toBe(false)
+		closeSessionPanel("non-existent")
+		expect(panel.disposed).toBe(false)
+	})
 
 	test("disposeAllSessionPanels disposes all", () => {
-		const context = createMockExtensionContext();
-		const panel1 = openSessionPanel(context, "s1", "Session 1");
-		const panel2 = openSessionPanel(context, "s2", "Session 2");
-		const panel3 = openSessionPanel(context, "s3", "Session 3");
-		// All panels should be open initially
-		expect(panel1.disposed).toBe(false);
-		expect(panel2.disposed).toBe(false);
-		expect(panel3.disposed).toBe(false);
-		disposeAllSessionPanels();
-		// All panels should be disposed
-		expect(panel1.disposed).toBe(true);
-		expect(panel2.disposed).toBe(true);
-		expect(panel3.disposed).toBe(true);
-	});
+		const context = createMockExtensionContext()
+		const panel1 = openSessionPanel(context, "s1", "Session 1")
+		const panel2 = openSessionPanel(context, "s2", "Session 2")
+		const panel3 = openSessionPanel(context, "s3", "Session 3")
+		expect(panel1.disposed).toBe(false)
+		expect(panel2.disposed).toBe(false)
+		expect(panel3.disposed).toBe(false)
+		disposeAllSessionPanels()
+		expect(panel1.disposed).toBe(true)
+		expect(panel2.disposed).toBe(true)
+		expect(panel3.disposed).toBe(true)
+	})
 
 	test("postMessageToPanel sends message to webview", () => {
-		const context = createMockExtensionContext();
-		const panel = openSessionPanel(context, "s1", "Session 1");
-		let capturedMsg: unknown = null;
-		// Spy on postMessage by replacing the method
+		const context = createMockExtensionContext()
+		const panel = openSessionPanel(context, "s1", "Session 1")
+		let capturedMsg: unknown = null
 		panel.webview.postMessage = async (msg: unknown): Promise<boolean> => {
-			capturedMsg = msg;
-			return true;
-		};
-		panel.webview.postMessage({ type: "test", data: {} });
-		// Verify the message was sent with expected type
-		if (capturedMsg && typeof capturedMsg === 'object' && capturedMsg !== null && 'type' in capturedMsg) {
-			const msg = capturedMsg as { type: string };
-			expect(msg.type).toBe("test");
-		} else {
-			throw new Error("Captured message does not have expected shape");
+			capturedMsg = msg
+			return true
 		}
-	});
-});
+		panel.webview.postMessage({ type: "test", data: {} })
+		if (capturedMsg && typeof capturedMsg === 'object' && capturedMsg !== null && 'type' in capturedMsg) {
+			const msg = capturedMsg as { type: string }
+			expect(msg.type).toBe("test")
+		} else {
+			throw new Error("Captured message does not have expected shape")
+		}
+	})
+})

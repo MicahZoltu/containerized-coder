@@ -16,7 +16,6 @@ export async function getTodos(client: OpencodeClient, session: SessionContext, 
 export function todoItemToTreeItem(todo: Todo) {
 	const treeItem = new vscode.TreeItem(todo.content, vscode.TreeItemCollapsibleState.None)
 	treeItem.checkboxState = todo.status === 'completed' ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked
-	// Use content as the ID since v2 Todo doesn't have an id field
 	treeItem.id = todo.content
 	return treeItem
 }

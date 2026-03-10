@@ -4,8 +4,6 @@ import { startListeningForOpencodeEvents } from "../../source/extension.js"
 import { isSdkEvent } from "../../source/utils/sdkEventGuards.js"
 import { server } from "./setup-opencode.js"
 
-// Note: startListeningForOpencodeEvents now uses a real client connected to the test server.
-
 describe("startListeningForOpencodeEvents", () => {
 	let noticeErrors: Array<[string, unknown]> = []
 	let noticeInfos: string[] = []
@@ -52,13 +50,10 @@ describe("startListeningForOpencodeEvents", () => {
 			sdkEventHandler
 		)
 
-		// Trigger a server event: create a session
 		await server.client.session.create({ title: "Test Event Forward" })
 
-		// Wait for event propagation
 		await new Promise(resolve => setTimeout(resolve, 500))
 
-		// Should have received events; find the session.created one
 		const sessionCreatedCalls = sdkEventHandler.mock.calls
 			.map(call => call[0] as { type: string })
 			.filter(event => event.type === "session.created")
@@ -82,18 +77,14 @@ describe("startListeningForOpencodeEvents", () => {
 			sdkEventHandler
 		)
 
-		// Wait for any initial events to settle
 		await new Promise(r => setTimeout(r, 200))
 		const callsBefore = sdkEventHandler.mock.calls.length
 
-		// Dispose all
 		disposables.forEach(d => d.dispose())
 
-		// Create another event after disposal
 		await server.client.session.create({ title: "After dispose" })
 		await new Promise(r => setTimeout(r, 500))
 
-		// Should not have additional calls beyond initial ones (which may include server.connected)
 		expect(sdkEventHandler.mock.calls.length).toBe(callsBefore)
 	})
 })
@@ -133,6 +124,3 @@ describe("isSdkEvent", () => {
 		expect(isSdkEvent({ type: "session.created", properties: { info: { id: "1" }, extra: "data" } })).toBe(true)
 	})
 })
-
-
-// Note: isSdkEvent tests are at bottom, removed unused import

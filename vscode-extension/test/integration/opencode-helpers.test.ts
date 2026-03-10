@@ -6,7 +6,7 @@ describe("opencode-helpers integration", () => {
 	describe("getModelList", () => {
 		test("returns models from providers config", async () => {
 			const errors: unknown[] = []
-			const noticeError = (msg: string, err: unknown) => { errors.push(err); void msg; }
+			const noticeError = (_message: string, error: unknown) => { errors.push(error) }
 
 			const result = await getModelList(server.client, noticeError)
 
@@ -19,7 +19,7 @@ describe("opencode-helpers integration", () => {
 	describe("getModel", () => {
 		test("returns current model from config", async () => {
 			const errors: unknown[] = []
-			const noticeError = (msg: string, err: unknown) => { errors.push(err); void msg; }
+			const noticeError = (_message: string, error: unknown) => { errors.push(error) }
 			const announced: string[] = []
 			const announce = (model: string) => announced.push(model)
 
@@ -34,7 +34,7 @@ describe("opencode-helpers integration", () => {
 	describe("setModel", () => {
 		test("updates config and refetches model", async () => {
 			const errors: unknown[] = []
-			const noticeError = (msg: string, err: unknown) => { errors.push(err); void msg; }
+			const noticeError = (_message: string, error: unknown) => { errors.push(error) }
 			const getModel = async () => {
 				const config = await server.client.config.get()
 				return config.data?.model ?? "Unknown"
@@ -44,7 +44,6 @@ describe("opencode-helpers integration", () => {
 
 			expect(errors.length).toBe(0)
 
-			// Verify model was actually set
 			const newModel = await getModel()
 			expect(newModel).toBe("mock/mock-model")
 		})

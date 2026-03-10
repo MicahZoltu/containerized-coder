@@ -1,33 +1,29 @@
-import type { LanguageModelChat } from 'vscode';
-import * as vscode from 'vscode';
+import type { LanguageModelChat } from 'vscode'
+import * as vscode from 'vscode'
 import { expect } from 'bun:test'
 
 export function createMockExtensionContext(): vscode.ExtensionContext {
-	const subscriptions: vscode.Disposable[] = [];
+	const subscriptions: vscode.Disposable[] = []
 
-	// Minimal memento
 	const memento: vscode.Memento = {
 		get: <T>(_key: string): T | undefined => undefined,
 		update: async (_key: string, _value: unknown) => {},
 		keys: () => []
-	};
+	}
 
-	// Global state with sync support
 	const globalState: vscode.Memento & { setKeysForSync(keys: readonly string[]): void } = {
 		...memento,
 		setKeysForSync: () => {}
-	};
+	}
 
-	// Secrets storage
 	const secrets: vscode.SecretStorage = {
 		get: async (): Promise<string | undefined> => undefined,
 		store: async () => {},
 		delete: async () => {},
 		keys: async () => [],
 		onDidChange: () => ({ dispose: () => {} })
-	};
+	}
 
-	// Environment variable collection (no-op)
 	const envVarCollection: vscode.GlobalEnvironmentVariableCollection = {
 		persistent: true,
 		description: undefined,
@@ -42,14 +38,14 @@ export function createMockExtensionContext(): vscode.ExtensionContext {
 			next: (): IteratorResult<[string, vscode.EnvironmentVariableMutator]> => ({ done: true, value: ['', { persistent: false, replacement: '' }] })
 		}),
 		getScoped: () => envVarCollection
-	};
+	}
 
-	const extensionUri = vscode.Uri.file('/extension');
+	const extensionUri = vscode.Uri.file('/extension')
 
 	const languageModelAccessInformation: vscode.LanguageModelAccessInformation = {
 		onDidChange: () => ({ dispose: () => {} }),
 		canSendRequest: (_chat: LanguageModelChat) => true
-	};
+	}
 
 	return {
 		subscriptions,
@@ -78,7 +74,7 @@ export function createMockExtensionContext(): vscode.ExtensionContext {
 		} as vscode.Extension<unknown>,
 		languageModelAccessInformation,
 		asAbsolutePath: (p) => vscode.Uri.joinPath(extensionUri, p).fsPath
-	};
+	}
 }
 
 export function assert(x: unknown): asserts x {
