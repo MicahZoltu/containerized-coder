@@ -29,7 +29,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		const item = sessionNodeToTreeItem(node)
 		expect(item.label).toBe("Active Sessions")
 		expect(item.contextValue).toBe('active-group')
-		expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Expanded)
+		expect(item.collapsibleState).toBe(2 as vscode.TreeItemCollapsibleState.Expanded)
 	})
 
 	test("creates tree item for archived-group", () => {
@@ -37,7 +37,7 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		const item = sessionNodeToTreeItem(node)
 		expect(item.label).toBe("Archived Sessions")
 		expect(item.contextValue).toBe('archived-group')
-		expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.Collapsed)
+		expect(item.collapsibleState).toBe(1 as vscode.TreeItemCollapsibleState.Collapsed)
 	})
 
 	test("creates tree item for active session node", () => {

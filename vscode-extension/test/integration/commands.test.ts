@@ -28,7 +28,7 @@ describe("commands", () => {
 		const createRes = await client.session.create({ title: "Original" })
 		const sessionId = createRes.data!.id
 
-		const treeItem = new vscode.TreeItem("Original", vscode.TreeItemCollapsibleState.None)
+		const treeItem = new vscode.TreeItem("Original", 0 as vscode.TreeItemCollapsibleState.None)
 		treeItem.id = sessionId
 
 		vscode.window.showInputBox = async () => "Renamed"
@@ -59,7 +59,7 @@ describe("commands", () => {
 		const createRes = await client.session.create({ title: "To Archive" })
 		const sessionId = createRes.data!.id
 
-		const treeItem = new vscode.TreeItem("To Archive", vscode.TreeItemCollapsibleState.None)
+		const treeItem = new vscode.TreeItem("To Archive", 0 as vscode.TreeItemCollapsibleState.None)
 		treeItem.id = sessionId
 
 		vscode.window.showWarningMessage = async <T>(_message: string, _options: vscode.MessageOptions, ...actions: T[]) => actions[0] || undefined
@@ -89,7 +89,7 @@ describe("commands", () => {
 		const createRes = await client.session.create({ title: "To Unarchive" })
 		const sessionId = createRes.data!.id
 
-		const treeItem = new vscode.TreeItem("To Unarchive", vscode.TreeItemCollapsibleState.None)
+		const treeItem = new vscode.TreeItem("To Unarchive", 0 as vscode.TreeItemCollapsibleState.None)
 		treeItem.id = sessionId
 
 		let fireCount = 0
@@ -113,7 +113,7 @@ describe("commands", () => {
 		const createRes = await client.session.create({ title: "To Delete" })
 		const sessionId = createRes.data!.id
 
-		const treeItem = new vscode.TreeItem("To Delete", vscode.TreeItemCollapsibleState.None)
+		const treeItem = new vscode.TreeItem("To Delete", 0 as vscode.TreeItemCollapsibleState.None)
 		treeItem.id = sessionId
 
 		vscode.window.showWarningMessage = async <T>(_message: string, _options: vscode.MessageOptions, ...actions: T[]) => actions[0] || undefined

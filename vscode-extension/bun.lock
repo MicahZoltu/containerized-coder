@@ -8,6 +8,7 @@
         "@opencode-ai/sdk": "1.2.4",
       },
       "devDependencies": {
+        "@tkoehlerlg/bun-mock-extended": "^1.0.0",
         "@types/bun": "1.3.9",
         "@types/vscode": "1.108.0",
         "opencode-ai": "1.2.4",
@@ -17,6 +18,8 @@
   },
   "packages": {
     "@opencode-ai/sdk": ["@opencode-ai/sdk@1.2.4", "", {}, "sha512-IPgtBpif46wTviC3HQxkjS4M/1tZSnRmD/6aEF3lL88MT+PAqKA30G+AhBlpvXBITq9EmjO4gjzM59ly2z7mYQ=="],
+
+    "@tkoehlerlg/bun-mock-extended": ["@tkoehlerlg/bun-mock-extended@1.0.0", "", { "dependencies": { "ts-essentials": "^10.0.2" }, "peerDependencies": { "bun-types": ">=1.0.0" } }, "sha512-/Xn5Y5NUsxVSi5hRTAyytFMYaPKKskcuBpL/kWQ7WlyQ8J79zsLVNri0LZThM2zjOPFXibmKOpDZmiqueGazLw=="],
 
     "@types/bun": ["@types/bun@1.3.9", "", { "dependencies": { "bun-types": "1.3.9" } }, "sha512-KQ571yULOdWJiMH+RIWIOZ7B2RXQGpL1YQrBtLIV3FqDcCu6FsbFUBwhdKUlCKUpS3PJDsHlJ1QKlpxoVR+xtw=="],
 
@@ -49,6 +52,8 @@
     "opencode-windows-x64": ["opencode-windows-x64@1.2.4", "", { "os": "win32", "cpu": "x64" }, "sha512-t8D+xl+Djqy0N0eV66FYzvOKGZ9xNe8HAJAD6/QeYD5AJ3turd8+M0F24M8oaDITU00GuZ0A3E80Xqv1s2/gWA=="],
 
     "opencode-windows-x64-baseline": ["opencode-windows-x64-baseline@1.2.4", "", { "os": "win32", "cpu": "x64" }, "sha512-fgI5EkoyS6Kc4wOOCPGnqG+az4h98RIUInGLsxv8bq5j3WOLfXKwEQuFEUWL+JiOcTb7lTcEYcBnoPzYU4yr8w=="],
+
+    "ts-essentials": ["ts-essentials@10.1.1", "", { "peerDependencies": { "typescript": ">=4.5.0" }, "optionalPeers": ["typescript"] }, "sha512-4aTB7KLHKmUvkjNj8V+EdnmuVTiECzn3K+zIbRthumvHu+j44x3w63xpfs0JL3NGIzGXqoQ7AV591xHO+XrOTw=="],
 
     "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

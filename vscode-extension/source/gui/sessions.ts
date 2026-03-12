@@ -64,13 +64,13 @@ export const fetchSessions = async (client: OpencodeClient, element?: SessionTre
 
 export function sessionNodeToTreeItem(node: SessionTreeNode): vscode.TreeItem {
 	if (node.type === 'active-group') {
-		const item = new vscode.TreeItem("Active Sessions", vscode.TreeItemCollapsibleState.Expanded)
+		const item = new vscode.TreeItem("Active Sessions", 2 as vscode.TreeItemCollapsibleState.Expanded)
 		item.id = 'active-group'
 		item.contextValue = 'active-group'
 		return item
 	}
 	if (node.type === 'archived-group') {
-		const item = new vscode.TreeItem("Archived Sessions", vscode.TreeItemCollapsibleState.Collapsed)
+		const item = new vscode.TreeItem("Archived Sessions", 1 as vscode.TreeItemCollapsibleState.Collapsed)
 		item.id = 'archived-group'
 		item.contextValue = 'archived-group'
 		return item

@@ -1,3 +1,5 @@
+import type * as vscode from 'vscode'
+
 export type Disposable = { dispose: () => void }
 
 export type Event<T = unknown> = (listener: (arg: T) => void) => Disposable
@@ -42,7 +44,7 @@ function createEvent<T>(): EventWithDispose<T> {
 export class TreeItem {
 	constructor(
 		public label: string,
-		public collapsibleState: TreeItemCollapsibleState
+		public collapsibleState: vscode.TreeItemCollapsibleState
 	) {}
 
 	id?: string
@@ -252,12 +254,6 @@ export class ExtensionContext {
 	asAbsolutePath(relativePath: string): string {
 		return `/absolute/${relativePath}`
 	}
-}
-
-export const enum TreeItemCollapsibleState {
-	None = 0,
-	Collapsed = 1,
-	Expanded = 2
 }
 
 export const enum StatusBarAlignment {
