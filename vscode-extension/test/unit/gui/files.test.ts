@@ -1,7 +1,7 @@
 import { mock, mockFn } from '@tkoehlerlg/bun-mock-extended'
 import { describe, expect, test } from "bun:test"
 import type * as vscode from 'vscode'
-import { fileDiffToTreeItem } from "../../source/gui/files.js"
+import { fileDiffToTreeItem } from "../../../source/gui/files.js"
 
 describe("files - pure functions", () => {
 	test("fileDiffToTreeItem shows + and - counts", () => {

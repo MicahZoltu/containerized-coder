@@ -1,7 +1,7 @@
 import type { Session } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
 import * as vscode from "vscode"
-import { getRootSessions, sessionNodeToTreeItem, type SessionTreeNode, type SessionWithStatus } from "../../source/gui/sessions.js"
+import { createSessionContext, getRootSessions, sessionNodeToTreeItem, type SessionTreeNode, type SessionWithStatus } from "../../../source/gui/sessions.js"
 
 function createMockSession(overrides: Partial<Session> = {}): SessionWithStatus {
 	const defaultSession: Session = {
@@ -23,7 +23,99 @@ function createMockSessionTreeNode(overrides: Partial<SessionTreeNode> = {}): Se
 	return { ...sessionNode, ...overrides }
 }
 
-describe("sessions - sessionNodeToTreeItem", () => {
+describe("createSessionContext", () => {
+	test("initial state returns null", () => {
+		const context = createSessionContext(() => {})
+		expect(context.getCurrentSessionId()).toBeNull()
+	})
+
+	test("selectSession updates current session ID", () => {
+		const context = createSessionContext(() => {})
+		context.selectSession("session-123")
+		expect(context.getCurrentSessionId()).toBe("session-123")
+	})
+
+	test("selectSession with null clears session", () => {
+		const context = createSessionContext(() => {})
+		context.selectSession("session-123")
+		context.selectSession(null)
+		expect(context.getCurrentSessionId()).toBeNull()
+	})
+
+	test("onChange fires when session changes", async () => {
+		const context = createSessionContext(() => {})
+		const emittedValues: (string | null)[] = []
+
+		const disposable = context.onChange(value => {
+			emittedValues.push(value)
+		})
+
+		context.selectSession("first")
+		expect(emittedValues).toEqual(["first"])
+
+		context.selectSession("second")
+		expect(emittedValues).toEqual(["first", "second"])
+
+		context.selectSession(null)
+		expect(emittedValues).toEqual(["first", "second", null])
+
+		disposable.dispose()
+	})
+
+	test("multiple listeners receive onChange events", () => {
+		const context = createSessionContext(() => {})
+		const listener1: (string | null)[] = []
+		const listener2: (string | null)[] = []
+
+		context.onChange(value => listener1.push(value))
+		context.onChange(value => listener2.push(value))
+
+		context.selectSession("test")
+
+		expect(listener1).toEqual(["test"])
+		expect(listener2).toEqual(["test"])
+	})
+
+	test("dispose stops onChange events", () => {
+		const context = createSessionContext(() => {})
+		const emitted: (string | null)[] = []
+
+		const disposable = context.onChange(value => emitted.push(value))
+		disposable.dispose()
+
+		context.selectSession("test")
+
+		expect(emitted).toEqual([])
+	})
+
+	test("dispose method cleans up emitter", () => {
+		const context = createSessionContext(() => {})
+		const emitted: (string | null)[] = []
+
+		const disposable = context.onChange(value => emitted.push(value))
+		context.dispose()
+		disposable.dispose()
+
+		context.selectSession("test")
+
+		expect(emitted).toEqual([])
+	})
+
+	test("changing to same value does not fire onChange", () => {
+		const context = createSessionContext(() => {})
+		context.selectSession("same")
+
+		const emitted: (string | null)[] = []
+		const disposable = context.onChange(value => emitted.push(value))
+
+		context.selectSession("same")
+
+		expect(emitted).toEqual([])
+		disposable.dispose()
+	})
+})
+
+describe("sessionNodeToTreeItem", () => {
 	test("creates tree item for active-group", () => {
 		const node: SessionTreeNode = { type: 'active-group' }
 		const item = sessionNodeToTreeItem(node)
@@ -70,9 +162,38 @@ describe("sessions - sessionNodeToTreeItem", () => {
 		expect(item.id).toBe("busy-1")
 		expect(item.contextValue).toBe('active-session')
 	})
+
+	test("creates tree item for session with retry status", () => {
+		const node = createMockSessionTreeNode({
+			id: "retry-1",
+			status: { type: "retry", attempt: 1, message: "error", next: 0 }
+		})
+		const item = sessionNodeToTreeItem(node)
+		expect(item.id).toBe("retry-1")
+		expect(item.contextValue).toBe('active-session')
+		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
+	})
+
+	test("description shows updated time for active session", () => {
+		const node = createMockSessionTreeNode({
+			id: "active",
+			time: { created: 1700000000, updated: 1700000001 }
+		})
+		const item = sessionNodeToTreeItem(node)
+		expect(item.description).toBe("2023-11-14 22:13:21")
+	})
+
+	test("description shows archived time for archived session", () => {
+		const node = createMockSessionTreeNode({
+			id: "archived",
+			time: { created: 1700000000, updated: 1700000001, archived: 1700000002 }
+		})
+		const item = sessionNodeToTreeItem(node)
+		expect(item.description).toBe("2023-11-14 22:13:22")
+	})
 })
 
-describe("sessions - getRootSessions", () => {
+describe("getRootSessions", () => {
 	test("returns root sessions for active group", () => {
 		const sessions: SessionWithStatus[] = [
 			createMockSession({ id: "root-1" }),
@@ -113,38 +234,5 @@ describe("sessions - getRootSessions", () => {
 		if (first?.type === 'session') {
 			expect(first.id).toBe("active-1")
 		}
-	})
-})
-
-describe("sessions - sessionNodeToTreeItem edge cases", () => {
-	test("creates tree item for session with retry status", () => {
-		const node = createMockSessionTreeNode({
-			id: "retry-1",
-			status: { type: "retry", attempt: 1, message: "error", next: 0 }
-		})
-		const item = sessionNodeToTreeItem(node)
-		expect(item.id).toBe("retry-1")
-		expect(item.contextValue).toBe('active-session')
-		// retry status should show error icon
-		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
-	})
-
-	test("description shows updated time for active session", () => {
-		const node = createMockSessionTreeNode({
-			id: "active",
-			time: { created: 1700000000, updated: 1700000001 }
-		})
-		const item = sessionNodeToTreeItem(node)
-		// Should format updated time as YYYY-MM-DD HH:MM:SS
-		expect(item.description).toBe("2023-11-14 22:13:21")
-	})
-
-	test("description shows archived time for archived session", () => {
-		const node = createMockSessionTreeNode({
-			id: "archived",
-			time: { created: 1700000000, updated: 1700000001, archived: 1700000002 }
-		})
-		const item = sessionNodeToTreeItem(node)
-		expect(item.description).toBe("2023-11-14 22:13:22")
 	})
 })
