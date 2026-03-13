@@ -1,100 +1,16 @@
-import { createOpencode, type OpencodeClient, type Event as SdkEvent } from "@opencode-ai/sdk/v2"
+import { createOpencode } from "@opencode-ai/sdk/v2"
 import * as vscode from "vscode"
 import { getFileDiffs } from "./gui-support/getFileDiffs.js"
 import { fileDiffToTreeItem } from "./gui/files.js"
 import { selectModelWithQuickPicker } from "./gui/modelSelector.js"
-import type { SessionContext } from "./gui/sessions.js"
 import { archiveSession, createSession, createSessionContext, deleteSession, fetchSessions, renameSession, sessionNodeToTreeItem, unarchiveSession } from "./gui/sessions.js"
 import { getTodos, todoItemToTreeItem } from "./gui/todos.js"
 import { getModel, setModel } from "./opencode-helpers.js"
 import { createModelSelectorStatusBarItem } from "./statusbar.js"
-import { nowAsString } from "./utils.js"
 import { EventEmitter } from "./utils/emitter.js"
-import { isSdkEvent } from "./utils/sdkEventGuards.js"
+import { nowAsString, setupPeriodicRefresh } from "./utils/miscellaneous.js"
+import { handleSdkEvent, startListeningForOpencodeEvents } from "./utils/sdk.js"
 import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "./webview/panel.js"
-
-export function handleSdkEvent(noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>, sessionContext: SessionContext, todoEmitter: EventEmitter<void>, fileEmitter: EventEmitter<void>, event: SdkEvent) {
-	const eventType = event.type
-
-	switch (eventType) {
-		case "session.created":
-		case "session.updated":
-		case "session.status":
-		case "session.idle":
-			sessionsEmitter.fire()
-			break
-
-		case "session.deleted":
-			const sessionId = event.properties.info.id
-			sessionsEmitter.fire()
-			closeSessionPanel(sessionId)
-			break
-
-		case "todo.updated":
-			if (sessionContext.getCurrentSessionId() === event.properties?.sessionID) {
-				todoEmitter.fire()
-			}
-			break
-
-		case "session.diff":
-			if (sessionContext.getCurrentSessionId() === event.properties?.sessionID) {
-				fileEmitter.fire()
-			}
-			break
-
-		case "session.error":
-			const error = event.properties?.error
-			if (error) {
-				const message = error?.data?.message || "An unknown error occurred in a session"
-				noticeError('Session error', message)
-			}
-			break
-	}
-}
-
-export async function startListeningForOpencodeEvents(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, noticeInfo: (message: string) => void, sdkEventHandler: (event: SdkEvent) => void) {
-	const disposables: { dispose: () => void }[] = []
-
-	try {
-		const eventSubscription = await client.event.subscribe()
-		const emitter = new EventEmitter<SdkEvent>(noticeError)
-		const listener = emitter.event(sdkEventHandler)
-		disposables.push(listener, emitter)
-
-		const backgroundStreamPumper = async () => {
-			try {
-				for await (const event of eventSubscription.stream) {
-					if (isSdkEvent(event)) {
-						emitter.fire(event)
-					} else {
-						noticeError('Invalid event received', event)
-					}
-				}
-			} catch (error) {
-				noticeError("SSE stream error", error)
-			}
-		}
-		backgroundStreamPumper()
-
-		disposables.push({ dispose: () => { listener.dispose(), emitter.dispose() } })
-
-		noticeInfo("SSE event subscription established")
-	} catch (error) {
-		noticeError("Failed to subscribe to events", error)
-	}
-
-	return disposables
-}
-
-export function setupPeriodicRefresh(refreshFn: () => Promise<unknown>, noticeError: (message: string, error: unknown) => void) {
-	const refreshIntervalId = setInterval(() => { refreshFn().catch(error => noticeError("Periodic refresh failed", error)) }, 10000)
-	const dispose = () => {
-		if (!refreshIntervalId) return
-		clearInterval(refreshIntervalId)
-	}
-
-	return { dispose }
-}
 
 // entrypoint called by VSCode when extension is loaded
 export async function activate(context: vscode.ExtensionContext) {
@@ -131,9 +47,10 @@ export async function activate(context: vscode.ExtensionContext) {
 
 		const createTreeItem = (label: string, collapsibleState: vscode.TreeItemCollapsibleState) => new vscode.TreeItem(label, collapsibleState)
 		const createThemeIcon = (id: string) => new vscode.ThemeIcon(id)
+		const createStatusBarItem = (alignment: vscode.StatusBarAlignment, priority: number) => vscode.window.createStatusBarItem(alignment, priority)
 		const showWarningMessage = async (message: string, options: { modal?: boolean }, ...actions: string[]) => await vscode.window.showWarningMessage(message, options, ...actions)
 		const showQuickPick = async <T extends vscode.QuickPickItem>(items: T[], options?: vscode.QuickPickOptions) => await vscode.window.showQuickPick(items, options)
-		const modelSelector = createModelSelectorStatusBarItem()
+		const modelSelector = createModelSelectorStatusBarItem(createStatusBarItem)
 		const sessionContext = createSessionContext(noticeError)
 		const todoEmitter = new EventEmitter<void>(noticeError)
 		sessionContext.onChange(() => todoEmitter.fire())
@@ -148,7 +65,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const curriedGetTodos = getTodos.bind(undefined, client, sessionContext)
 		const curriedGetFileDiffs = getFileDiffs.bind(undefined, client, sessionContext)
 		const curriedGetSessions = fetchSessions.bind(undefined, client)
-		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter)
+		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel)
 
 		const sessionOpenCommand = vscode.commands.registerCommand("opencode.sessions.open", openSessionPanel.bind(undefined, context))
 		const sessionSelectCommand = vscode.commands.registerCommand("opencode.model.select", selectModelWithQuickPicker.bind(undefined, client, noticeError, curriedSetModel, showWarningMessage, showQuickPick))

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { isPlainObject } from "../../source/utils/typeGuards.js"
+import { isPlainObject } from "../../source/utils/miscellaneous.js"
 
 describe("isPlainObject", () => {
 	test("returns true for plain objects", () => {

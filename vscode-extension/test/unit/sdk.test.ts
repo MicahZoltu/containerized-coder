@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test"
-import { setupPeriodicRefresh } from "../../source/extension.js"
+import { setupPeriodicRefresh } from "../../source/utils/miscellaneous.js"
 import { assert } from "../helpers.js"
 
 describe("refresh coordination", () => {

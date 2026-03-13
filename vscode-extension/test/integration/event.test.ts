@@ -1,9 +1,9 @@
 import { createOpencodeClient, type Event as SdkEvent, type Session, type UnknownError } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
-import { EventEmitter } from '../../source/utils/emitter.js'
-import { handleSdkEvent } from "../../source/extension.js"
 import { createSessionContext } from "../../source/gui/sessions.js"
-import { openSessionPanel } from '../../source/webview/panel.js'
+import { EventEmitter } from '../../source/utils/emitter.js'
+import { handleSdkEvent } from "../../source/utils/sdk.js"
+import { closeSessionPanel, openSessionPanel } from '../../source/webview/panel.js'
 import { createMockExtensionContext } from "../helpers.js"
 import { server } from "./setup-opencode.js"
 
@@ -72,7 +72,7 @@ describe("extension event handler", () => {
 
 		const event: SdkEvent = { type: "session.created", properties: { info: session } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -93,7 +93,7 @@ describe("extension event handler", () => {
 
 		const event: SdkEvent = { type: "session.updated", properties: { info: session } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -124,7 +124,7 @@ describe("extension event handler", () => {
 
 		const event: SdkEvent = { type: "session.deleted", properties: { info: session } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
 
 		expect(fireCount).toBe(1)
 		expect(sessionPanel.disposed).toBe(true)
@@ -143,11 +143,11 @@ describe("extension event handler", () => {
 		const dispose = todoEmitter.event(() => { emitted = true })
 
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, { type: "todo.updated", properties: { sessionID: "selected-session", todos: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "todo.updated", properties: { sessionID: "selected-session", todos: [] } })
 		expect(emitted).toBe(true)
 
 		emitted = false
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, { type: "todo.updated", properties: { sessionID: "other-session", todos: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "todo.updated", properties: { sessionID: "other-session", todos: [] } })
 		expect(emitted).toBe(false)
 
 		dispose.dispose()
@@ -165,11 +165,11 @@ describe("extension event handler", () => {
 		let fireCount = 0
 		fileEmitter.fire = () => { fireCount++ }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, { type: "session.diff", properties: { sessionID: "selected-session", diff: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "session.diff", properties: { sessionID: "selected-session", diff: [] } })
 		expect(fireCount).toBe(1)
 
 		fireCount = 0
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, { type: "session.diff", properties: { sessionID: "other-session", diff: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "session.diff", properties: { sessionID: "other-session", diff: [] } })
 		expect(fireCount).toBe(0)
 		sessionsEmitter.dispose()
 	})
@@ -188,7 +188,7 @@ describe("extension event handler", () => {
 			properties: { sessionID: "session-123", status: { type: "busy" } }
 		}
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -205,7 +205,7 @@ describe("extension event handler", () => {
 
 		const event: SdkEvent = { type: "session.idle", properties: { sessionID: "session-123" } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -230,7 +230,7 @@ describe("extension event handler", () => {
 			properties: { error }
 		}
 
-		handleSdkEvent(noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, event)
+		handleSdkEvent(noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
 
 		expect(showErrorCalls.length).toBe(1)
 		expect(showErrorCalls[0]).toContain("Test error message")
@@ -246,7 +246,7 @@ describe("extension event handler", () => {
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, { type: "unknown.event.type", properties: {} } as unknown as SdkEvent)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "unknown.event.type", properties: {} } as unknown as SdkEvent)
 
 		expect(fireCount).toBe(0)
 		sessionsEmitter.dispose()

@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { getNonce } from "../utils.js"
+import { getNonce } from "../utils/miscellaneous.js"
 
 const sessionPanels = new Map<string, vscode.WebviewPanel>()
 

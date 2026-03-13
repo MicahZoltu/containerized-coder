@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { getNonce } from "../../source/utils.js"
+import { getNonce } from "../../source/utils/miscellaneous.js"
 
 describe("utils", () => {
 	test("getNonce returns a string", () => {

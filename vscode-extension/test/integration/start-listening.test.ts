@@ -1,7 +1,6 @@
 import { createOpencodeClient } from "@opencode-ai/sdk/v2"
 import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test"
-import { startListeningForOpencodeEvents } from "../../source/extension.js"
-import { isSdkEvent } from "../../source/utils/sdkEventGuards.js"
+import { isSdkEvent, startListeningForOpencodeEvents } from "../../source/utils/sdk.js"
 import { server } from "./setup-opencode.js"
 
 describe("startListeningForOpencodeEvents", () => {
