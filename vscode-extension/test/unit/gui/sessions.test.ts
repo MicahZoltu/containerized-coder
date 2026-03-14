@@ -1,6 +1,6 @@
 import type { Session } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
-import * as vscode from "vscode"
+import type * as vscode from "vscode"
 import { createSessionContext, getRootSessions, sessionNodeToTreeItem, type SessionTreeNode, type SessionWithStatus } from "../../../source/gui/sessions.js"
 
 function createMockSession(overrides: Partial<Session> = {}): SessionWithStatus {
@@ -21,6 +21,19 @@ function createMockSessionTreeNode(overrides: Partial<SessionTreeNode> = {}): Se
 	const base = createMockSession()
 	const sessionNode: SessionTreeNode = { type: 'session', ...base }
 	return { ...sessionNode, ...overrides }
+}
+
+function createMockCreateTreeItem(): (label: string, collapsibleState: vscode.TreeItemCollapsibleState) => vscode.TreeItem {
+	return (label, collapsibleState) => {
+		const item = {} as vscode.TreeItem
+		item.label = label
+		item.collapsibleState = collapsibleState
+		return item
+	}
+}
+
+function createMockCreateThemeIcon(): (id: string) => vscode.ThemeIcon {
+	return (id) => ({ id, color: undefined }) as vscode.ThemeIcon
 }
 
 describe("createSessionContext", () => {
@@ -116,9 +129,12 @@ describe("createSessionContext", () => {
 })
 
 describe("sessionNodeToTreeItem", () => {
+	const createTreeItem = createMockCreateTreeItem()
+	const createThemeIcon = createMockCreateThemeIcon()
+
 	test("creates tree item for active-group", () => {
 		const node: SessionTreeNode = { type: 'active-group' }
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.label).toBe("Active Sessions")
 		expect(item.contextValue).toBe('active-group')
 		expect(item.collapsibleState).toBe(2 as vscode.TreeItemCollapsibleState.Expanded)
@@ -126,7 +142,7 @@ describe("sessionNodeToTreeItem", () => {
 
 	test("creates tree item for archived-group", () => {
 		const node: SessionTreeNode = { type: 'archived-group' }
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.label).toBe("Archived Sessions")
 		expect(item.contextValue).toBe('archived-group')
 		expect(item.collapsibleState).toBe(1 as vscode.TreeItemCollapsibleState.Collapsed)
@@ -134,11 +150,11 @@ describe("sessionNodeToTreeItem", () => {
 
 	test("creates tree item for active session node", () => {
 		const node = createMockSessionTreeNode({ id: "sess-123", title: "My Session" })
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.id).toBe("sess-123")
 		expect(item.label).toBe("My Session")
 		expect(item.description).toBeDefined()
-		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
+		expect(item.iconPath).toBeDefined()
 		expect(item.contextValue).toBe('active-session')
 		expect(item.command?.command).toBe("opencode.sessions.open")
 		expect(item.command?.arguments).toEqual(["sess-123", "My Session"])
@@ -151,14 +167,14 @@ describe("sessionNodeToTreeItem", () => {
 			title: "Archived Session",
 			time: { created: 1700000000, updated: 1700000001, archived: 1234567890 }
 		})
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.id).toBe("archived-1")
 		expect(item.contextValue).toBe('archived-session')
 	})
 
 	test("creates tree item for session with busy status", () => {
 		const node = createMockSessionTreeNode({ id: "busy-1", status: { type: "busy" } })
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.id).toBe("busy-1")
 		expect(item.contextValue).toBe('active-session')
 	})
@@ -168,10 +184,10 @@ describe("sessionNodeToTreeItem", () => {
 			id: "retry-1",
 			status: { type: "retry", attempt: 1, message: "error", next: 0 }
 		})
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.id).toBe("retry-1")
 		expect(item.contextValue).toBe('active-session')
-		expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon)
+		expect(item.iconPath).toBeDefined()
 	})
 
 	test("description shows updated time for active session", () => {
@@ -179,7 +195,7 @@ describe("sessionNodeToTreeItem", () => {
 			id: "active",
 			time: { created: 1700000000, updated: 1700000001 }
 		})
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.description).toBe("2023-11-14 22:13:21")
 	})
 
@@ -188,7 +204,7 @@ describe("sessionNodeToTreeItem", () => {
 			id: "archived",
 			time: { created: 1700000000, updated: 1700000001, archived: 1700000002 }
 		})
-		const item = sessionNodeToTreeItem(node)
+		const item = sessionNodeToTreeItem(createTreeItem, createThemeIcon, node)
 		expect(item.description).toBe("2023-11-14 22:13:22")
 	})
 })
