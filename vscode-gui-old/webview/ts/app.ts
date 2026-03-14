@@ -1037,6 +1037,17 @@ function getIcon(op: Operation): string {
 	return icons[op.type] || "🤖"
 }
 
+function getCopyableContent(op: Operation): string | null {
+	switch (op.type) {
+		case "text":
+		case "thinking":
+		case "user-message":
+			return ("content" in op && op.content) ? op.content : null
+		default:
+			return null
+	}
+}
+
 // Create DOM element for an operation
 async function createOperationElement(op: Operation): Promise<HTMLElement> {
 	const el = document.createElement("div")
@@ -1072,18 +1083,44 @@ async function createOperationElement(op: Operation): Promise<HTMLElement> {
 
 	const timeBadge = op.timestamp !== undefined ? `<span class="op-time">${formatTime(op.timestamp)}</span>` : ""
 
+	const copyableContent = getCopyableContent(op)
+	const copyButton = copyableContent
+		? `<button class="op-copy-btn" title="Copy raw text">📋</button>`
+		: ""
+
 	el.innerHTML = `
 		<div class="op-header">
 			<span class="op-icon">${getIcon(op)}</span>
 			<span class="op-title">${escapeHtml(op.title)}</span>
 			${titlePreview}
-			<span class="op-meta">${modelBadge}${agentBadge}${statusBadge}${timeBadge}</span>
+			<span class="op-meta">${modelBadge}${agentBadge}${statusBadge}${timeBadge}${copyButton}</span>
 			<span class="op-toggle">▼</span>
 		</div>
 		 <div class="op-body">
 			<div class="op-content">${contentHtml}</div>
 		</div>
 	`
+
+	if (copyableContent) {
+		const copyBtn = el.querySelector(".op-copy-btn") as HTMLButtonElement
+		if (copyBtn) {
+			copyBtn.addEventListener("click", async (e) => {
+				e.stopPropagation()
+				try {
+					await navigator.clipboard.writeText(copyableContent)
+					const originalTitle = copyBtn.title
+					copyBtn.textContent = "✓"
+					copyBtn.title = "Copied!"
+					setTimeout(() => {
+						copyBtn.textContent = "📋"
+						copyBtn.title = originalTitle
+					}, 1500)
+				} catch (err) {
+					console.error("Failed to copy:", err)
+				}
+			})
+		}
+	}
 
 	// Toggle expand/collapse
 	const header = el.querySelector(".op-header")
