@@ -43,7 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
 	try {
 		noticeInfo("OpenCode extension activating...")
 
-		const { client, server } = await createOpencode()
+		const { client, server } = await createOpencode({ port: 0 })
 
 		const createTreeItem = (label: string, collapsibleState: vscode.TreeItemCollapsibleState) => new vscode.TreeItem(label, collapsibleState)
 		const createThemeIcon = (id: string) => new vscode.ThemeIcon(id)

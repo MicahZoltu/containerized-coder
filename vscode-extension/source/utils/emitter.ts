@@ -3,7 +3,7 @@ export class EventEmitter<T> {
 
 	constructor(private noticeError: (message: string, error: unknown) => void) {}
 
-	event(listener: (eventArgument: T) => void) {
+	event = (listener: (eventArgument: T) => void) => {
 		this.eventListeners.push(listener)
 		return {
 			dispose: () => {
@@ -13,7 +13,7 @@ export class EventEmitter<T> {
 		}
 	}
 
-	fire(eventArgument: T): void {
+	fire = (eventArgument: T): void => {
 		for (const listener of this.eventListeners) {
 			try {
 				listener(eventArgument)
@@ -23,7 +23,7 @@ export class EventEmitter<T> {
 		}
 	}
 
-	dispose(): void {
+	dispose = (): void => {
 		this.eventListeners = []
 	}
 }

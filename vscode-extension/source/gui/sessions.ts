@@ -18,8 +18,8 @@ export function createSessionContext(noticeError: (message: string, error: unkno
 		currentSessionId = id
 		emitter.fire(id)
 	}
-	const onChange = emitter.event.bind(emitter)
-	const dispose = emitter.dispose.bind(emitter)
+	const onChange = emitter.event
+	const dispose = emitter.dispose
 	return { getCurrentSessionId, selectSession, onChange, dispose }
 }
 
@@ -165,10 +165,6 @@ export async function deleteSession(client: OpencodeClient, noticeError: (messag
 		return
 	}
 	const sessionId = node.id
-
-	const confirmed = await vscode.window.showWarningMessage("Are you sure you want to delete this session? This cannot be undone.", { modal: true }, "Yes")
-
-	if (confirmed !== "Yes") return
 
 	try {
 		await client.session.delete({ sessionID: sessionId })
