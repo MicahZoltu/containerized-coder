@@ -133,15 +133,4 @@ describe("commands", () => {
 		sessionsEmitter.dispose()
 	})
 
-	test("opencode.sessions.refresh fires emitter", async () => {
-		const sessionsEmitter = new EventEmitter<void>(() => {})
-
-		let fireCount = 0
-		sessionsEmitter.fire = () => { fireCount++ }
-
-		sessionsEmitter.fire()
-
-		expect(fireCount).toBe(1)
-		sessionsEmitter.dispose()
 	})
-})

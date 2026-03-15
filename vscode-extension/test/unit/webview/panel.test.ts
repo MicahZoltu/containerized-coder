@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import * as vscode from "vscode"
-import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "../../source/webview/panel.js"
-import { createMockExtensionContext } from "../helpers.js"
+import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "../../../source/webview/panel.js"
+import { createMockExtensionContext } from "../../helpers.js"
 
 describe("webview panel management", () => {
 	beforeEach(() => {

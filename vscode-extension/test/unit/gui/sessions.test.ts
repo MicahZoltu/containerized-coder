@@ -1,6 +1,7 @@
 import type { Session } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
 import type * as vscode from "vscode"
+import { EventEmitter } from "../../../source/utils/emitter.js"
 import { createSessionContext, getRootSessions, sessionNodeToTreeItem, type SessionTreeNode, type SessionWithStatus } from "../../../source/gui/sessions.js"
 
 function createMockSession(overrides: Partial<Session> = {}): SessionWithStatus {
@@ -250,5 +251,19 @@ describe("getRootSessions", () => {
 		if (first?.type === 'session') {
 			expect(first.id).toBe("active-1")
 		}
+	})
+})
+
+describe("sessionsEmitter", () => {
+	test("refresh fires emitter", () => {
+		const sessionsEmitter = new EventEmitter<void>(() => {})
+
+		let fireCount = 0
+		sessionsEmitter.fire = () => { fireCount++ }
+
+		sessionsEmitter.fire()
+
+		expect(fireCount).toBe(1)
+		sessionsEmitter.dispose()
 	})
 })

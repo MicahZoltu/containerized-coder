@@ -1,6 +1,6 @@
 import { createOpencodeClient } from "@opencode-ai/sdk/v2"
 import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test"
-import { isSdkEvent, startListeningForOpencodeEvents } from "../../source/utils/sdk.js"
+import { startListeningForOpencodeEvents } from "../../source/utils/sdk.js"
 import { server } from "./setup-opencode.js"
 
 describe("startListeningForOpencodeEvents", () => {
@@ -85,41 +85,5 @@ describe("startListeningForOpencodeEvents", () => {
 		await new Promise(r => setTimeout(r, 500))
 
 		expect(sdkEventHandler.mock.calls.length).toBe(callsBefore)
-	})
-})
-
-describe("isSdkEvent", () => {
-	test("returns true for valid SDK event", () => {
-		expect(isSdkEvent({ type: "session.created", properties: { info: {} } })).toBe(true)
-	})
-
-	test("returns false for null", () => {
-		expect(isSdkEvent(null)).toBe(false)
-	})
-
-	test("returns false for undefined", () => {
-		expect(isSdkEvent(undefined)).toBe(false)
-	})
-
-	test("returns false for object without type string", () => {
-		expect(isSdkEvent({ type: 123, properties: {} })).toBe(false)
-		expect(isSdkEvent({ notType: "missing" })).toBe(false)
-	})
-
-	test("returns false for object with non-object properties", () => {
-		expect(isSdkEvent({ type: "test", properties: "should be object" })).toBe(false)
-		expect(isSdkEvent({ type: "test", properties: 42 })).toBe(false)
-	})
-
-	test("returns true when properties is null", () => {
-		expect(isSdkEvent({ type: "test", properties: null })).toBe(true)
-	})
-
-	test("returns true when properties is undefined", () => {
-		expect(isSdkEvent({ type: "test" })).toBe(true)
-	})
-
-	test("accepts plain object with arbitrary properties", () => {
-		expect(isSdkEvent({ type: "session.created", properties: { info: { id: "1" }, extra: "data" } })).toBe(true)
 	})
 })
