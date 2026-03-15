@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { getModel, getModelList, setModel } from "../../source/opencode-helpers.js"
+import { getModel, getModelList, setModel } from "../../source/utils/opencode-helpers.js"
 import { server } from "./setup-opencode.js"
 
 describe("opencode-helpers integration", () => {

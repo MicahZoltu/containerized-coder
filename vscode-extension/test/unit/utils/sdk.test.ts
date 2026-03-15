@@ -1,10 +1,10 @@
+import * as vscode from "vscode"
 import { createOpencodeClient, type Event as SdkEvent, type Session, type UnknownError } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
 import { createSessionContext } from "../../../source/gui/sessions.js"
 import { EventEmitter } from '../../../source/utils/emitter.js'
 import { handleSdkEvent, isSdkEvent } from "../../../source/utils/sdk.js"
 import { closeSessionPanel, openSessionPanel } from '../../../source/webview/panel.js'
-import { createMockExtensionContext } from "../../helpers.js"
 
 describe("handleSdkEvent", () => {
 	test("session.created triggers sessionsEmitter.fire", async () => {
@@ -13,6 +13,7 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -22,7 +23,7 @@ describe("handleSdkEvent", () => {
 
 		const event: SdkEvent = { type: "session.created", properties: { info: session } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -34,6 +35,7 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -43,7 +45,7 @@ describe("handleSdkEvent", () => {
 
 		const event: SdkEvent = { type: "session.updated", properties: { info: session } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -54,13 +56,15 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
-		const context = createMockExtensionContext()
 		const sessionID = "test-session-id"
-		const sessionPanel = openSessionPanel(context, sessionID, "Test Session")
+		const createWebviewPanel = vscode.window.createWebviewPanel.bind(vscode.window)
+		openSessionPanel(createWebviewPanel, panels, sessionID, "Test Session")
+		const sessionPanel = panels.get(sessionID)
 
 		const session: Session = {
 			id: sessionID,
@@ -74,10 +78,10 @@ describe("handleSdkEvent", () => {
 
 		const event: SdkEvent = { type: "session.deleted", properties: { info: session } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), event)
 
 		expect(fireCount).toBe(1)
-		expect(sessionPanel.disposed).toBe(true)
+		expect(sessionPanel?.disposed).toBe(true)
 		sessionsEmitter.dispose()
 	})
 
@@ -86,6 +90,7 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		sessionContext.selectSession("selected-session")
 
@@ -93,11 +98,11 @@ describe("handleSdkEvent", () => {
 		const dispose = todoEmitter.onFire(() => { emitted = true })
 
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "todo.updated", properties: { sessionID: "selected-session", todos: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), { type: "todo.updated", properties: { sessionID: "selected-session", todos: [] } })
 		expect(emitted).toBe(true)
 
 		emitted = false
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "todo.updated", properties: { sessionID: "other-session", todos: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), { type: "todo.updated", properties: { sessionID: "other-session", todos: [] } })
 		expect(emitted).toBe(false)
 
 		dispose.dispose()
@@ -109,17 +114,18 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		sessionContext.selectSession("selected-session")
 
 		let fireCount = 0
 		fileEmitter.fire = () => { fireCount++ }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "session.diff", properties: { sessionID: "selected-session", diff: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), { type: "session.diff", properties: { sessionID: "selected-session", diff: [] } })
 		expect(fireCount).toBe(1)
 
 		fireCount = 0
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "session.diff", properties: { sessionID: "other-session", diff: [] } })
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), { type: "session.diff", properties: { sessionID: "other-session", diff: [] } })
 		expect(fireCount).toBe(0)
 		sessionsEmitter.dispose()
 	})
@@ -129,6 +135,7 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
@@ -138,7 +145,7 @@ describe("handleSdkEvent", () => {
 			properties: { sessionID: "session-123", status: { type: "busy" } }
 		}
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -149,13 +156,14 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
 		const event: SdkEvent = { type: "session.idle", properties: { sessionID: "session-123" } }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), event)
 
 		expect(fireCount).toBe(1)
 		sessionsEmitter.dispose()
@@ -166,6 +174,7 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		const showErrorCalls: unknown[] = []
 		const noticeError = (_: string, message: unknown) => showErrorCalls.push(message)
@@ -180,7 +189,7 @@ describe("handleSdkEvent", () => {
 			properties: { error }
 		}
 
-		handleSdkEvent(noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, event)
+		handleSdkEvent(noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), event)
 
 		expect(showErrorCalls.length).toBe(1)
 		expect(showErrorCalls[0]).toContain("Test error message")
@@ -192,11 +201,12 @@ describe("handleSdkEvent", () => {
 		const fileEmitter = new EventEmitter<void>(() => {})
 		const sessionContext = createSessionContext(() => {})
 		const todoEmitter = new EventEmitter<void>(() => {})
+		const panels = new Map<string, vscode.WebviewPanel>()
 
 		let fireCount = 0
 		sessionsEmitter.fire = () => { fireCount++ }
 
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "unknown.event.type", properties: {} } as unknown as SdkEvent)
+		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), { type: "unknown.event.type", properties: {} } as unknown as SdkEvent)
 
 		expect(fireCount).toBe(0)
 		sessionsEmitter.dispose()

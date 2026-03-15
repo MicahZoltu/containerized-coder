@@ -1,27 +1,20 @@
-import * as vscode from "vscode"
+import type * as vscode from "vscode"
 import { getNonce } from "../utils/miscellaneous.js"
 
-const sessionPanels = new Map<string, vscode.WebviewPanel>()
-
-export function openSessionPanel(context: vscode.ExtensionContext, sessionID: string, sessionTitle: string): vscode.WebviewPanel {
-	const existingPanel = sessionPanels.get(sessionID)
+export function openSessionPanel(createWebviewPanel: typeof vscode.window.createWebviewPanel, panels: Map<string, vscode.WebviewPanel>, sessionID: string, sessionTitle: string): void {
+	const existingPanel = panels.get(sessionID)
 	if (existingPanel) {
 		existingPanel.reveal()
-		return existingPanel
+		return
 	}
 
-	const panel = vscode.window.createWebviewPanel(`opencodeSession-${sessionID}`, sessionTitle, vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [context.extensionUri] })
-
-	panel.webview.html = getWebviewContent(panel.webview, sessionID, sessionTitle)
-
-	sessionPanels.set(sessionID, panel)
-
-	panel.onDidDispose(() => sessionPanels.delete(sessionID), null)
-
-	return panel
+	const panel = createWebviewPanel(`opencodeSession-${sessionID}`, sessionTitle, 1 as vscode.ViewColumn.One, { enableScripts: true, retainContextWhenHidden: true })
+	panel.webview.html = getWebviewContent(panel.webview.cspSource, sessionID, sessionTitle)
+	panels.set(sessionID, panel)
+	panel.onDidDispose(() => panels.delete(sessionID), null)
 }
 
-function getWebviewContent(webview: vscode.Webview, sessionID: string, sessionTitle: string): string {
+export function getWebviewContent(cspSource: string, sessionID: string, sessionTitle: string): string {
 	const nonce = getNonce()
 
 	const stylesVscode =`
@@ -61,7 +54,7 @@ function getWebviewContent(webview: vscode.Webview, sessionID: string, sessionTi
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">
 	${stylesVscode}
 </head>
 <body>
@@ -74,17 +67,10 @@ function getWebviewContent(webview: vscode.Webview, sessionID: string, sessionTi
 </html>`
 }
 
-export function closeSessionPanel(sessionID: string): void {
-	const panel = sessionPanels.get(sessionID)
+export function closeSessionPanel(panels: Map<string, vscode.WebviewPanel>, sessionID: string): void {
+	const panel = panels.get(sessionID)
 	if (panel) {
 		panel.dispose()
-		sessionPanels.delete(sessionID)
+		panels.delete(sessionID)
 	}
-}
-
-export function disposeAllSessionPanels(): void {
-	for (const panel of sessionPanels.values()) {
-		panel.dispose()
-	}
-	sessionPanels.clear()
 }

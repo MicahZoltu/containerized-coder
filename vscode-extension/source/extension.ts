@@ -5,12 +5,12 @@ import { fileDiffToTreeItem } from "./gui/files.js"
 import { selectModelWithQuickPicker } from "./gui/modelSelector.js"
 import { archiveSession, createSession, createSessionContext, deleteSession, fetchSessions, renameSession, sessionNodeToTreeItem, unarchiveSession } from "./gui/sessions.js"
 import { getTodos, todoItemToTreeItem } from "./gui/todos.js"
-import { getModel, setModel } from "./opencode-helpers.js"
+import { getModel, setModel } from "./utils/opencode-helpers.js"
 import { createModelSelectorStatusBarItem } from "./gui/statusbar.js"
 import { EventEmitter } from "./utils/emitter.js"
 import { nowAsString, setupPeriodicRefresh } from "./utils/miscellaneous.js"
 import { handleSdkEvent, startListeningForOpencodeEvents } from "./utils/sdk.js"
-import { closeSessionPanel, disposeAllSessionPanels, openSessionPanel } from "./webview/panel.js"
+import { closeSessionPanel, openSessionPanel } from "./webview/panel.js"
 
 // entrypoint called by VSCode when extension is loaded
 export async function activate(context: vscode.ExtensionContext) {
@@ -48,6 +48,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		const createTreeItem = (label: string, collapsibleState: vscode.TreeItemCollapsibleState) => new vscode.TreeItem(label, collapsibleState)
 		const createThemeIcon = (id: string) => new vscode.ThemeIcon(id)
 		const createStatusBarItem = (alignment: vscode.StatusBarAlignment, priority: number) => vscode.window.createStatusBarItem(alignment, priority)
+		const createWebviewPanel: typeof vscode.window.createWebviewPanel = (...params) => vscode.window.createWebviewPanel(...params)
 		const showWarningMessage = async (message: string, options: { modal?: boolean } = {}, ...actions: string[]) => await vscode.window.showWarningMessage(message, options, ...actions)
 		const showInputBox = async (options: vscode.InputBoxOptions) => await vscode.window.showInputBox(options)
 		const showQuickPick = async <T extends vscode.QuickPickItem>(items: T[], options?: vscode.QuickPickOptions) => await vscode.window.showQuickPick(items, options)
@@ -66,9 +67,11 @@ export async function activate(context: vscode.ExtensionContext) {
 		const curriedGetTodos = getTodos.bind(undefined, client, sessionContext)
 		const curriedGetFileDiffs = getFileDiffs.bind(undefined, client, sessionContext)
 		const curriedGetSessions = fetchSessions.bind(undefined, client)
-		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel)
 
-		const sessionOpenCommand = vscode.commands.registerCommand("opencode.sessions.open", openSessionPanel.bind(undefined, context))
+		const sessionPanels = new Map<string, vscode.WebviewPanel>()
+
+		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, sessionPanels))
+		const sessionOpenCommand = vscode.commands.registerCommand("opencode.sessions.open", openSessionPanel.bind(undefined, createWebviewPanel, sessionPanels))
 		const sessionSelectCommand = vscode.commands.registerCommand("opencode.model.select", selectModelWithQuickPicker.bind(undefined, client, noticeError, curriedSetModel, showWarningMessage, showQuickPick))
 		const sessionCreateCommand = vscode.commands.registerCommand("opencode.sessions.create", createSession.bind(undefined, client, noticeError, sessionsEmitter))
 		const sessionRefreshCommand = vscode.commands.registerCommand("opencode.sessions.refresh", () => sessionsEmitter.fire())
@@ -107,8 +110,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			setupPeriodicRefresh(curriedGetModel, noticeError),
 
-			{ dispose: disposeAllSessionPanels },
-
+			{ dispose: () => { sessionPanels.forEach(panel => panel.dispose); sessionPanels.clear() } },
 			...await startListeningForOpencodeEvents(client, noticeError, noticeInfo, curriedHandleSdkEvent),
 		)
 
