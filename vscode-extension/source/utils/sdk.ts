@@ -66,7 +66,7 @@ export async function startListeningForOpencodeEvents(client: OpencodeClient, no
 	try {
 		const eventSubscription = await client.event.subscribe()
 		const emitter = new EventEmitter<SdkEvent>(noticeError)
-		const listener = emitter.event(sdkEventHandler)
+		const listener = emitter.onFire(sdkEventHandler)
 		disposables.push(listener, emitter)
 
 		const backgroundStreamPumper = async () => {

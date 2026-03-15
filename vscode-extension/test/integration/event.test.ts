@@ -140,7 +140,7 @@ describe("extension event handler", () => {
 		sessionContext.selectSession("selected-session")
 
 		let emitted = false
-		const dispose = todoEmitter.event(() => { emitted = true })
+		const dispose = todoEmitter.onFire(() => { emitted = true })
 
 
 		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel, { type: "todo.updated", properties: { sessionID: "selected-session", todos: [] } })

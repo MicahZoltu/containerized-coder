@@ -5,7 +5,7 @@ import { EventEmitter } from "../utils/emitter.js"
 export interface SessionContext {
 	getCurrentSessionId(): string | null
 	selectSession(id: string | null): void
-	onChange: EventEmitter<string | null>['event']
+	onChange: EventEmitter<string | null>['onFire']
 	dispose(): void
 }
 
@@ -18,7 +18,7 @@ export function createSessionContext(noticeError: (message: string, error: unkno
 		currentSessionId = id
 		emitter.fire(id)
 	}
-	const onChange = emitter.event
+	const onChange = emitter.onFire
 	const dispose = emitter.dispose
 	return { getCurrentSessionId, selectSession, onChange, dispose }
 }

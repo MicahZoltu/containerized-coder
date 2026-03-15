@@ -77,9 +77,9 @@ export async function activate(context: vscode.ExtensionContext) {
 		const sessionUnarchiveCommand = vscode.commands.registerCommand("opencode.sessions.unarchive", unarchiveSession.bind(undefined, client, noticeError, sessionsEmitter, showWarningMessage))
 		const sessionDeleteCommand = vscode.commands.registerCommand("opencode.sessions.delete", deleteSession.bind(undefined, client, noticeError, sessionsEmitter, sessionContext, showWarningMessage))
 
-		const todoTreeView = vscode.window.createTreeView("opencode.todos", { treeDataProvider: { getTreeItem: (todo) => todoItemToTreeItem(createTreeItem, todo), getChildren: curriedGetTodos, onDidChangeTreeData: todoEmitter.event }, showCollapseAll: false })
-		const fileDiffTreeView = vscode.window.createTreeView("opencode.files", { treeDataProvider: { getTreeItem: (diff) => fileDiffToTreeItem(createTreeItem, createThemeIcon, diff), getChildren: curriedGetFileDiffs, onDidChangeTreeData: fileEmitter.event }, showCollapseAll: false })
-		const sessionsTreeView = vscode.window.createTreeView("opencode.sessions", { treeDataProvider: { getTreeItem: (node) => sessionNodeToTreeItem(createTreeItem, createThemeIcon, node), getChildren: curriedGetSessions, onDidChangeTreeData: sessionsEmitter.event }, showCollapseAll: true })
+		const todoTreeView = vscode.window.createTreeView("opencode.todos", { treeDataProvider: { getTreeItem: (todo) => todoItemToTreeItem(createTreeItem, todo), getChildren: curriedGetTodos, onDidChangeTreeData: todoEmitter.onFire }, showCollapseAll: false })
+		const fileDiffTreeView = vscode.window.createTreeView("opencode.files", { treeDataProvider: { getTreeItem: (diff) => fileDiffToTreeItem(createTreeItem, createThemeIcon, diff), getChildren: curriedGetFileDiffs, onDidChangeTreeData: fileEmitter.onFire }, showCollapseAll: false })
+		const sessionsTreeView = vscode.window.createTreeView("opencode.sessions", { treeDataProvider: { getTreeItem: (node) => sessionNodeToTreeItem(createTreeItem, createThemeIcon, node), getChildren: curriedGetSessions, onDidChangeTreeData: sessionsEmitter.onFire }, showCollapseAll: true })
 		sessionsTreeView.onDidChangeSelection(event => event.selection[0]?.type === 'session' && sessionContext.selectSession(event.selection[0].id))
 
 		context.subscriptions.push(

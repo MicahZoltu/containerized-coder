@@ -3,7 +3,7 @@ export class EventEmitter<T> {
 
 	constructor(private noticeError: (message: string, error: unknown) => void) {}
 
-	event = (listener: (eventArgument: T) => void) => {
+	onFire = (listener: (eventArgument: T) => void) => {
 		this.eventListeners.push(listener)
 		return {
 			dispose: () => {
