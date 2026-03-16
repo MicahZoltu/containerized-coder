@@ -1107,14 +1107,21 @@ async function createOperationElement(op: Operation): Promise<HTMLElement> {
 			copyBtn.addEventListener("click", async (e) => {
 				e.stopPropagation()
 				try {
-					await navigator.clipboard.writeText(copyableContent)
-					const originalTitle = copyBtn.title
-					copyBtn.textContent = "✓"
-					copyBtn.title = "Copied!"
-					setTimeout(() => {
-						copyBtn.textContent = "📋"
-						copyBtn.title = originalTitle
-					}, 1500)
+					// Get operation ID from parent element and fetch current operation state
+					const opId = el.dataset.id
+					const currentOp = opId ? operations.get(opId) : null
+					const contentToCopy = currentOp ? getCopyableContent(currentOp) : null
+
+					if (contentToCopy) {
+						await navigator.clipboard.writeText(contentToCopy)
+						const originalTitle = copyBtn.title
+						copyBtn.textContent = "✓"
+						copyBtn.title = "Copied!"
+						setTimeout(() => {
+							copyBtn.textContent = "📋"
+							copyBtn.title = originalTitle
+						}, 1500)
+					}
 				} catch (err) {
 					console.error("Failed to copy:", err)
 				}
