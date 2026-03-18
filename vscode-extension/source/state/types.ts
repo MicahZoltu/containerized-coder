@@ -13,21 +13,26 @@ export type SessionMetadata = {
 }
 
 export type UIError = {
+	name: string
 	message: string
 	isRetryable: boolean
+	statusCode?: number
+	responseHeaders?: Record<string, string>
+	responseBody?: string
+	metadata?: Record<string, string>
 }
 
 export type UIPart =
 	| { type: 'text'; text: string }
 	| { type: 'reasoning'; text: string }
-	| { type: 'tool'; status: 'pending' | 'running' | 'completed' | 'error'; title?: string; output?: string; error?: string }
+	| { type: 'tool'; status: 'pending' | 'running' | 'completed' | 'error'; title?: string; output?: string; error?: string; attachments?: UIPart[] }
 	| { type: 'file'; filename?: string; url: string; mime: string }
 	| { type: 'step-start' }
 	| { type: 'step-finish'; reason: string }
 	| { type: 'snapshot'; snapshot: string }
 	| { type: 'patch'; hash: string; files: string[] }
 	| { type: 'agent'; name: string }
-	| { type: 'retry'; attempt: number; errorMessage: string }
+	| { type: 'retry'; attempt: number; error: UIError }
 	| { type: 'compaction'; auto: boolean }
 	| { type: 'subtask'; prompt: string; description: string; agent: string }
 

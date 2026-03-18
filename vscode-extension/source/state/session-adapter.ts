@@ -1,0 +1,206 @@
+import type { ApiError, ContextOverflowError, FileDiff, Message, MessageAbortedError, MessageOutputLengthError, Part, ProviderAuthError, SessionStatus as SdkSessionStatus, Session, StructuredOutputError, Todo, ToolState, UnknownError } from "@opencode-ai/sdk/v2"
+import { assertNever } from '../utils/miscellaneous.js'
+import type { SessionMetadata, UIError, UIFileDiff, UIMessage, UIPart, UITodo } from "./types.js"
+import { adaptSessionStatus } from "./types.js"
+
+export function adaptSessionMetadata(sdkSession: Session, sdkStatus: SdkSessionStatus): SessionMetadata {
+	const result: SessionMetadata = {
+		id: sdkSession.id,
+		title: sdkSession.title,
+		directory: sdkSession.directory,
+		status: adaptSessionStatus(sdkStatus),
+		created: sdkSession.time.created,
+		updated: sdkSession.time.updated,
+	}
+	if (sdkSession.time.archived !== undefined) {
+		result.archived = sdkSession.time.archived
+	}
+	return result
+}
+
+export function adaptError(sdkError: ApiError | ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError | StructuredOutputError | ContextOverflowError): UIError {
+	switch (sdkError.name) {
+		case "APIError": {
+			const apiError = sdkError as ApiError
+			const data = apiError.data
+			return {
+				name: apiError.name,
+				message: data.message,
+				isRetryable: data.isRetryable,
+				...(data.statusCode !== undefined && { statusCode: data.statusCode }),
+				...(data.responseHeaders !== undefined && { responseHeaders: data.responseHeaders }),
+				...(data.responseBody !== undefined && { responseBody: data.responseBody }),
+				...(data.metadata !== undefined && { metadata: data.metadata }),
+			}
+		}
+		case "ProviderAuthError": {
+			const providerError = sdkError as ProviderAuthError
+			return {
+				name: providerError.name,
+				message: providerError.data.message,
+				isRetryable: false,
+			}
+		}
+		case "UnknownError": {
+			const unknownError = sdkError as UnknownError
+			return {
+				name: unknownError.name,
+				message: unknownError.data.message,
+				isRetryable: false,
+			}
+		}
+		case "MessageOutputLengthError": {
+			const lengthError = sdkError as MessageOutputLengthError
+			const message = typeof lengthError.data.message === 'string' ? lengthError.data.message : "Message output length error"
+			return {
+				name: lengthError.name,
+				message,
+				isRetryable: false,
+			}
+		}
+		case "MessageAbortedError": {
+			const abortedError = sdkError as MessageAbortedError
+			return {
+				name: abortedError.name,
+				message: abortedError.data.message,
+				isRetryable: false,
+			}
+		}
+		case "StructuredOutputError": {
+			const structuredError = sdkError as StructuredOutputError
+			return {
+				name: structuredError.name,
+				message: structuredError.data.message,
+				isRetryable: false,
+			}
+		}
+		case "ContextOverflowError": {
+			const overflowError = sdkError as ContextOverflowError
+			const message = overflowError.data.message
+			return {
+				name: overflowError.name,
+				message,
+				isRetryable: false,
+			}
+		}
+	}
+}
+
+export function adaptMessage(sdkMessage: Message, sdkParts: Part[]): UIMessage {
+	const base: UIMessage = {
+		id: sdkMessage.id,
+		role: sdkMessage.role,
+		parts: sdkParts.filter(p => p.messageID === sdkMessage.id).map(adaptPart),
+		created: sdkMessage.time.created,
+	}
+
+	if (sdkMessage.role === "assistant") {
+		if (sdkMessage.time.completed !== undefined) {
+			base.completed = sdkMessage.time.completed
+		}
+		if (sdkMessage.error !== undefined) {
+			base.error = adaptError(sdkMessage.error)
+		}
+	}
+
+	return base
+}
+
+export function adaptPart(sdkPart: Part): UIPart {
+	const type = sdkPart.type
+	switch (type) {
+		case "text":
+			return { type: "text", text: sdkPart.text }
+		case "reasoning":
+			return { type: "reasoning", text: sdkPart.text }
+		case "tool":
+			return adaptToolPart(sdkPart.state)
+		case "file": {
+			const filePart: UIPart = { type: "file", url: sdkPart.url, mime: sdkPart.mime }
+			if (sdkPart.filename !== undefined) {
+				filePart.filename = sdkPart.filename
+			}
+			return filePart
+		}
+		case "step-start":
+			return { type: "step-start" }
+		case "step-finish":
+			return { type: "step-finish", reason: sdkPart.reason }
+		case "snapshot":
+			return { type: "snapshot", snapshot: sdkPart.snapshot }
+		case "patch":
+			return { type: "patch", hash: sdkPart.hash, files: sdkPart.files }
+		case "agent":
+			return { type: "agent", name: sdkPart.name }
+		case "retry":
+			return { type: "retry", attempt: sdkPart.attempt, error: adaptError(sdkPart.error) }
+		case "compaction":
+			return { type: "compaction", auto: sdkPart.auto }
+		case "subtask":
+			return { type: "subtask", prompt: sdkPart.prompt, description: sdkPart.description, agent: sdkPart.agent }
+		default:
+			assertNever(type)
+	}
+}
+
+function adaptToolPart(state: ToolState): Extract<UIPart, { type: "tool" }> {
+	const status = state.status
+	switch (status) {
+		case "pending":
+			return { type: "tool", status: "pending" }
+		case "running": {
+			const runningPart: UIPart = { type: "tool", status: "running" }
+			if (state.title !== undefined) {
+				runningPart.title = state.title
+			}
+			return runningPart
+		}
+		case "completed": {
+			const completedPart: UIPart = { type: "tool", status: "completed", output: state.output }
+			if (state.title !== undefined) {
+				completedPart.title = state.title
+			}
+			if (state.attachments !== undefined) {
+				completedPart.attachments = state.attachments.map(adaptPart)
+			}
+			return completedPart
+		}
+		case "error":
+			return { type: "tool", status: "error", error: state.error }
+		default:
+			assertNever(status)
+	}
+}
+
+export function adaptMessages(sdkMessages: Message[], sdkParts: Part[]): UIMessage[] {
+	return sdkMessages.map(msg => adaptMessage(msg, sdkParts))
+}
+
+function validateTodoStatus(status: string): UITodo["status"] {
+	const valid: UITodo["status"][] = ["pending", "in_progress", "completed", "cancelled"]
+	return valid.includes(status as UITodo["status"]) ? (status as UITodo["status"]) : "pending"
+}
+
+function validateTodoPriority(priority: string): UITodo["priority"] {
+	const valid: UITodo["priority"][] = ["high", "medium", "low"]
+	return valid.includes(priority as UITodo["priority"]) ? (priority as UITodo["priority"]) : "medium"
+}
+
+export function adaptTodos(sdkTodos: Todo[]): UITodo[] {
+	return sdkTodos.map(todo => ({
+		content: todo.content,
+		status: validateTodoStatus(todo.status),
+		priority: validateTodoPriority(todo.priority),
+	}))
+}
+
+export function adaptFileDiffs(sdkDiffs: FileDiff[]): UIFileDiff[] {
+	return sdkDiffs.map(diff => ({
+		file: diff.file,
+		before: diff.before,
+		after: diff.after,
+		additions: diff.additions,
+		deletions: diff.deletions,
+		status: diff.status ?? "modified",
+	}))
+}

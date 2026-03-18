@@ -29,3 +29,7 @@ export function isPlainObject(candidate: unknown): candidate is Record<string, u
 	if (prototype === Object.prototype) return true
 	return false
 }
+
+export function assertNever(value: never): never {
+  throw new Error(`Unexpected value: ${value}`);
+}
