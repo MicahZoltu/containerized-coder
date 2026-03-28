@@ -9,11 +9,11 @@ WORKDIR /build
 RUN <<EOF
 	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
 	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
-	apt-get update -o Acquire::Check-Valid-Until=false
 EOF
 
 RUN <<EOF
 	set -e
+	apt-get update -o Acquire::Check-Valid-Until=false
 	apt-get install -y --no-install-recommends zip=3.0-15
 	rm -rf /var/lib/apt/lists/*
 EOF
@@ -43,11 +43,11 @@ RUN <<EOF
 	set -e
 	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
 	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
-	apt-get update -o Acquire::Check-Valid-Until=false
 EOF
 
 RUN <<EOF
 	set -e
+	apt-get update -o Acquire::Check-Valid-Until=false
 	apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 ca-certificates=20250419
 	rm -rf /var/lib/apt/lists/*
 EOF
@@ -88,14 +88,13 @@ RUN <<EOF
 	set -e
 	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
 	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
-	apt-get update -o Acquire::Check-Valid-Until=false
 EOF
 
 # OS dependencies
 RUN <<EOF
 	set -e
-	apt-get update
-	apt-get install -y --no-install-recommends ca-certificates=20230311+deb12u1 curl=7.88.1-10+deb12u14 git=1:2.39.5-0+deb12u3
+	apt-get update -o Acquire::Check-Valid-Until=false
+	apt-get install -y --no-install-recommends ca-certificates=20230311+deb12u1 curl=7.88.1-10+deb12u14 git=1:2.39.5-0+deb12u3 openssh-client=1:9.2p1-2+deb12u5
 	rm -rf /var/lib/apt/lists/*
 EOF
 
@@ -156,7 +155,12 @@ ENTRYPOINT ["/opt/code-server/bin/code-server", "--disable-telemetry", "--disabl
 ###
 FROM base AS with-bun
 
-RUN apt-get update && apt-get install -y --no-install-recommends unzip=6.0-28 && rm -rf /var/lib/apt/lists/*
+RUN <<EOF
+	set -e
+	apt-get update -o Acquire::Check-Valid-Until=false
+	apt-get install -y --no-install-recommends unzip=6.0-28
+	rm -rf /var/lib/apt/lists/*
+EOF
 
 RUN <<EOF
 	set -e
