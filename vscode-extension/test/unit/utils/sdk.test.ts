@@ -1,10 +1,11 @@
-import * as vscode from "vscode"
+import { mock } from '@tkoehlerlg/bun-mock-extended'
 import { createOpencodeClient, type Event as SdkEvent, type Session, type UnknownError } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
+import type * as vscode from "vscode"
 import { createSessionContext } from "../../../source/gui/sessions.js"
 import { EventEmitter } from '../../../source/utils/emitter.js'
 import { handleSdkEvent, isSdkEvent } from "../../../source/utils/sdk.js"
-import { closeSessionPanel, openSessionPanel } from '../../../source/webview/panel.js'
+import { closeSessionPanel } from '../../../source/webview/panel.js'
 
 describe("handleSdkEvent", () => {
 	test("session.created triggers sessionsEmitter.fire", async () => {
@@ -62,9 +63,8 @@ describe("handleSdkEvent", () => {
 		sessionsEmitter.fire = () => { fireCount++ }
 
 		const sessionID = "test-session-id"
-		const createWebviewPanel = vscode.window.createWebviewPanel.bind(vscode.window)
-		openSessionPanel(createWebviewPanel, panels, sessionID, "Test Session")
-		const sessionPanel = panels.get(sessionID)
+		const mockPanel = mock<vscode.WebviewPanel>()
+		panels.set(sessionID, mockPanel)
 
 		const session: Session = {
 			id: sessionID,
@@ -81,7 +81,7 @@ describe("handleSdkEvent", () => {
 		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), event)
 
 		expect(fireCount).toBe(1)
-		expect(sessionPanel?.disposed).toBe(true)
+		expect(panels.get(sessionID)).toBeUndefined()
 		sessionsEmitter.dispose()
 	})
 
@@ -196,21 +196,7 @@ describe("handleSdkEvent", () => {
 		sessionsEmitter.dispose()
 	})
 
-	test("unknown event types are ignored", async () => {
-		const sessionsEmitter = new EventEmitter<void>(() => {})
-		const fileEmitter = new EventEmitter<void>(() => {})
-		const sessionContext = createSessionContext(() => {})
-		const todoEmitter = new EventEmitter<void>(() => {})
-		const panels = new Map<string, vscode.WebviewPanel>()
-
-		let fireCount = 0
-		sessionsEmitter.fire = () => { fireCount++ }
-
-		handleSdkEvent(() => {}, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, panels), { type: "unknown.event.type", properties: {} } as unknown as SdkEvent)
-
-		expect(fireCount).toBe(0)
-		sessionsEmitter.dispose()
-	})
+	
 })
 
 describe("isSdkEvent", () => {

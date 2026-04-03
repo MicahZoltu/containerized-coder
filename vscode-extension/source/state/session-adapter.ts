@@ -110,53 +110,53 @@ export function adaptPart(sdkPart: Part): UIPart {
 	const type = sdkPart.type
 	switch (type) {
 		case "text":
-			return { type: "text", text: sdkPart.text }
+			return { id: sdkPart.id, type: "text", text: sdkPart.text }
 		case "reasoning":
-			return { type: "reasoning", text: sdkPart.text }
+			return { id: sdkPart.id, type: "reasoning", text: sdkPart.text }
 		case "tool":
-			return adaptToolPart(sdkPart.state)
+			return adaptToolPart(sdkPart.id, sdkPart.state)
 		case "file": {
-			const filePart: UIPart = { type: "file", url: sdkPart.url, mime: sdkPart.mime }
+			const filePart: UIPart = { id: sdkPart.id, type: "file", url: sdkPart.url, mime: sdkPart.mime }
 			if (sdkPart.filename !== undefined) {
 				filePart.filename = sdkPart.filename
 			}
 			return filePart
 		}
 		case "step-start":
-			return { type: "step-start" }
+			return { id: sdkPart.id, type: "step-start" }
 		case "step-finish":
-			return { type: "step-finish", reason: sdkPart.reason }
+			return { id: sdkPart.id, type: "step-finish", reason: sdkPart.reason }
 		case "snapshot":
-			return { type: "snapshot", snapshot: sdkPart.snapshot }
+			return { id: sdkPart.id, type: "snapshot", snapshot: sdkPart.snapshot }
 		case "patch":
-			return { type: "patch", hash: sdkPart.hash, files: sdkPart.files }
+			return { id: sdkPart.id, type: "patch", hash: sdkPart.hash, files: sdkPart.files }
 		case "agent":
-			return { type: "agent", name: sdkPart.name }
+			return { id: sdkPart.id, type: "agent", name: sdkPart.name }
 		case "retry":
-			return { type: "retry", attempt: sdkPart.attempt, error: adaptError(sdkPart.error) }
+			return { id: sdkPart.id, type: "retry", attempt: sdkPart.attempt, error: adaptError(sdkPart.error) }
 		case "compaction":
-			return { type: "compaction", auto: sdkPart.auto }
+			return { id: sdkPart.id, type: "compaction", auto: sdkPart.auto }
 		case "subtask":
-			return { type: "subtask", prompt: sdkPart.prompt, description: sdkPart.description, agent: sdkPart.agent }
+			return { id: sdkPart.id, type: "subtask", prompt: sdkPart.prompt, description: sdkPart.description, agent: sdkPart.agent }
 		default:
 			assertNever(type)
 	}
 }
 
-function adaptToolPart(state: ToolState): Extract<UIPart, { type: "tool" }> {
+function adaptToolPart(partID: string, state: ToolState): Extract<UIPart, { type: "tool" }> {
 	const status = state.status
 	switch (status) {
 		case "pending":
-			return { type: "tool", status: "pending" }
+			return { id: partID, type: "tool", status: "pending" }
 		case "running": {
-			const runningPart: UIPart = { type: "tool", status: "running" }
+			const runningPart: Extract<UIPart, { type: "tool" }> = { id: partID, type: "tool", status: "running" }
 			if (state.title !== undefined) {
 				runningPart.title = state.title
 			}
 			return runningPart
 		}
 		case "completed": {
-			const completedPart: UIPart = { type: "tool", status: "completed", output: state.output }
+			const completedPart: Extract<UIPart, { type: "tool" }> = { id: partID, type: "tool", status: "completed", output: state.output }
 			if (state.title !== undefined) {
 				completedPart.title = state.title
 			}
@@ -166,7 +166,7 @@ function adaptToolPart(state: ToolState): Extract<UIPart, { type: "tool" }> {
 			return completedPart
 		}
 		case "error":
-			return { type: "tool", status: "error", error: state.error }
+			return { id: partID, type: "tool", status: "error", error: state.error }
 		default:
 			assertNever(status)
 	}

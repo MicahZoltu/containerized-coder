@@ -11,6 +11,7 @@ import { EventEmitter } from "./utils/emitter.js"
 import { nowAsString, setupPeriodicRefresh } from "./utils/miscellaneous.js"
 import { handleSdkEvent, startListeningForOpencodeEvents } from "./utils/sdk.js"
 import { closeSessionPanel, openSessionPanel } from "./webview/panel.js"
+import { SessionStateManager } from "./state/session-manager.js"
 
 // entrypoint called by VSCode when extension is loaded
 export async function activate(context: vscode.ExtensionContext) {
@@ -69,9 +70,13 @@ export async function activate(context: vscode.ExtensionContext) {
 		const curriedGetSessions = fetchSessions.bind(undefined, client)
 
 		const sessionPanels = new Map<string, vscode.WebviewPanel>()
+		const sessionManager = new SessionStateManager()
+		sessionManager.setClient(client)
+		sessionManager.start()
 
 		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, sessionPanels))
-		const sessionOpenCommand = vscode.commands.registerCommand("opencode.sessions.open", openSessionPanel.bind(undefined, createWebviewPanel, sessionPanels))
+		const curriedManagerHandleEvent = sessionManager.handleEvent.bind(sessionManager)
+		const sessionOpenCommand = vscode.commands.registerCommand("opencode.sessions.open", openSessionPanel.bind(undefined, createWebviewPanel, sessionPanels, sessionManager))
 		const sessionSelectCommand = vscode.commands.registerCommand("opencode.model.select", selectModelWithQuickPicker.bind(undefined, client, noticeError, curriedSetModel, showWarningMessage, showQuickPick))
 		const sessionCreateCommand = vscode.commands.registerCommand("opencode.sessions.create", createSession.bind(undefined, client, noticeError, sessionsEmitter))
 		const sessionRefreshCommand = vscode.commands.registerCommand("opencode.sessions.refresh", () => sessionsEmitter.fire())
@@ -90,6 +95,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			outputChannel,
 			modelSelector,
 			sessionContext,
+			{ dispose: () => sessionManager.stop() },
 
 			todoEmitter,
 			fileEmitter,
@@ -111,7 +117,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			setupPeriodicRefresh(curriedGetModel, noticeError),
 
 			{ dispose: () => { sessionPanels.forEach(panel => panel.dispose); sessionPanels.clear() } },
-			...await startListeningForOpencodeEvents(client, noticeError, noticeInfo, curriedHandleSdkEvent),
+			...await startListeningForOpencodeEvents(client, noticeError, noticeInfo, curriedHandleSdkEvent, curriedManagerHandleEvent),
 		)
 
 		// initial query for the current model at startup

@@ -60,13 +60,18 @@ export function handleSdkEvent(noticeError: (message: string, error: unknown) =>
 	}
 }
 
-export async function startListeningForOpencodeEvents(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, noticeInfo: (message: string) => void, sdkEventHandler: (event: SdkEvent) => void) {
+export async function startListeningForOpencodeEvents(client: OpencodeClient, noticeError: (message: string, error: unknown) => void, noticeInfo: (message: string) => void, sdkEventHandler: (event: SdkEvent) => void, sessionManagerEventHandler?: (event: SdkEvent) => void) {
 	const disposables: { dispose: () => void }[] = []
 
 	try {
 		const eventSubscription = await client.event.subscribe()
 		const emitter = new EventEmitter<SdkEvent>(noticeError)
-		const listener = emitter.onFire(sdkEventHandler)
+		const listener = emitter.onFire((event: SdkEvent) => {
+			sdkEventHandler(event)
+			if (sessionManagerEventHandler) {
+				sessionManagerEventHandler(event)
+			}
+		})
 		disposables.push(listener, emitter)
 
 		const backgroundStreamPumper = async () => {

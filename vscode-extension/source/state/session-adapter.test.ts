@@ -226,7 +226,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "text", text: "Hello world" })
+		expect(result).toEqual({ id: "part-1", type: "text", text: "Hello world" })
 	})
 
 	test("adapts reasoning part", () => {
@@ -240,7 +240,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "reasoning", text: "Thinking..." })
+		expect(result).toEqual({ id: "part-2", type: "reasoning", text: "Thinking..." })
 	})
 
 	test("adapts tool part with pending status", () => {
@@ -256,7 +256,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "tool", status: "pending" })
+		expect(result).toEqual({ id: "part-tool", type: "tool", status: "pending" })
 	})
 
 	test("adapts tool part with running status and title", () => {
@@ -277,7 +277,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "tool", status: "running", title: "Running tool" })
+		expect(result).toEqual({ id: "part-tool", type: "tool", status: "running", title: "Running tool" })
 	})
 
 	test("adapts tool part with running status without title", () => {
@@ -297,7 +297,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "tool", status: "running" })
+		expect(result).toEqual({ id: "part-tool", type: "tool", status: "running" })
 	})
 
 	test("adapts tool part with completed status including output and optional fields", () => {
@@ -321,6 +321,7 @@ describe("adaptPart", () => {
 		const result = adaptPart(sdkPart)
 
 		expect(result).toEqual({
+			id: "part-tool",
 			type: "tool",
 			status: "completed",
 			title: "Completed tool",
@@ -359,11 +360,12 @@ describe("adaptPart", () => {
 		const result = adaptPart(sdkPart)
 
 		expect(result).toEqual({
+			id: "part-tool",
 			type: "tool",
 			status: "completed",
 			title: "Tool",
 			output: "Output",
-			attachments: [{ type: "file", filename: "attachment.txt", url: "file:///test.txt", mime: "text/plain" }],
+			attachments: [{ id: "att-1", type: "file", filename: "attachment.txt", url: "file:///test.txt", mime: "text/plain" }],
 		})
 	})
 
@@ -385,7 +387,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "tool", status: "error", error: "Tool failed" })
+		expect(result).toEqual({ id: "part-tool", type: "tool", status: "error", error: "Tool failed" })
 	})
 
 	test("adapts file part with filename", () => {
@@ -400,7 +402,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "file", filename: "test.txt", url: "file:///test.txt", mime: "text/plain" })
+		expect(result).toEqual({ id: "part-file", type: "file", filename: "test.txt", url: "file:///test.txt", mime: "text/plain" })
 	})
 
 	test("adapts file part without filename", () => {
@@ -414,7 +416,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "file", url: "file:///test.txt", mime: "text/plain" })
+		expect(result).toEqual({ id: "part-file", type: "file", url: "file:///test.txt", mime: "text/plain" })
 	})
 
 	test("adapts step-start part", () => {
@@ -426,7 +428,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "step-start" })
+		expect(result).toEqual({ id: "part-step-start", type: "step-start" })
 	})
 
 	test("adapts step-finish part", () => {
@@ -441,7 +443,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "step-finish", reason: "Done" })
+		expect(result).toEqual({ id: "part-step-finish", type: "step-finish", reason: "Done" })
 	})
 
 	test("adapts snapshot part", () => {
@@ -454,7 +456,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "snapshot", snapshot: "snapshot content" })
+		expect(result).toEqual({ id: "part-snapshot", type: "snapshot", snapshot: "snapshot content" })
 	})
 
 	test("adapts patch part", () => {
@@ -468,7 +470,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "patch", hash: "def456", files: ["a.txt", "b.txt"] })
+		expect(result).toEqual({ id: "part-patch", type: "patch", hash: "def456", files: ["a.txt", "b.txt"] })
 	})
 
 	test("adapts agent part", () => {
@@ -481,7 +483,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "agent", name: "agent-xyz" })
+		expect(result).toEqual({ id: "part-agent", type: "agent", name: "agent-xyz" })
 	})
 
 	test("adapts retry part", () => {
@@ -501,6 +503,7 @@ describe("adaptPart", () => {
 		const result = adaptPart(sdkPart)
 
 		expect(result).toEqual({
+			id: "part-retry",
 			type: "retry",
 			attempt: 2,
 			error: {
@@ -521,7 +524,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "compaction", auto: false })
+		expect(result).toEqual({ id: "part-compaction", type: "compaction", auto: false })
 	})
 
 	test("adapts subtask part", () => {
@@ -536,7 +539,7 @@ describe("adaptPart", () => {
 		}
 		const result = adaptPart(sdkPart)
 
-		expect(result).toEqual({ type: "subtask", prompt: "Do task", description: "Task desc", agent: "agent-1" })
+		expect(result).toEqual({ id: "part-subtask", type: "subtask", prompt: "Do task", description: "Task desc", agent: "agent-1" })
 	})
 })
 
@@ -578,7 +581,7 @@ describe("adaptMessages", () => {
 		expect(first).toEqual({
 			id: "msg-1",
 			role: "user",
-			parts: [{ type: "text", text: "User message text" }],
+			parts: [{ id: "part-1", type: "text", text: "User message text" }],
 			created: 1000,
 		})
 		const second = result[1]!
@@ -586,8 +589,8 @@ describe("adaptMessages", () => {
 			id: "msg-2",
 			role: "assistant",
 			parts: [
-				{ type: "reasoning", text: "Assistant reasoning" },
-				{ type: "text", text: "Assistant answer" },
+				{ id: "part-2", type: "reasoning", text: "Assistant reasoning" },
+				{ id: "part-3", type: "text", text: "Assistant answer" },
 			],
 			created: 2000,
 			completed: 3000,

@@ -25,16 +25,11 @@ function createMockSessionTreeNode(overrides: Partial<SessionTreeNode> = {}): Se
 }
 
 function createMockCreateTreeItem(): (label: string, collapsibleState: vscode.TreeItemCollapsibleState) => vscode.TreeItem {
-	return (label, collapsibleState) => {
-		const item = {} as vscode.TreeItem
-		item.label = label
-		item.collapsibleState = collapsibleState
-		return item
-	}
+	return (label, collapsibleState) => ({ label, collapsibleState })
 }
 
 function createMockCreateThemeIcon(): (id: string) => vscode.ThemeIcon {
-	return (id) => ({ id, color: undefined }) as vscode.ThemeIcon
+	return (id) => ({ id, color: undefined })
 }
 
 describe("createSessionContext", () => {

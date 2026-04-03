@@ -23,18 +23,18 @@ export type UIError = {
 }
 
 export type UIPart =
-	| { type: 'text'; text: string }
-	| { type: 'reasoning'; text: string }
-	| { type: 'tool'; status: 'pending' | 'running' | 'completed' | 'error'; title?: string; output?: string; error?: string; attachments?: UIPart[] }
-	| { type: 'file'; filename?: string; url: string; mime: string }
-	| { type: 'step-start' }
-	| { type: 'step-finish'; reason: string }
-	| { type: 'snapshot'; snapshot: string }
-	| { type: 'patch'; hash: string; files: string[] }
-	| { type: 'agent'; name: string }
-	| { type: 'retry'; attempt: number; error: UIError }
-	| { type: 'compaction'; auto: boolean }
-	| { type: 'subtask'; prompt: string; description: string; agent: string }
+	| { id: string; type: 'text'; text: string }
+	| { id: string; type: 'reasoning'; text: string }
+	| { id: string; type: 'tool'; status: 'pending' | 'running' | 'completed' | 'error'; title?: string; output?: string; error?: string; attachments?: UIPart[] }
+	| { id: string; type: 'file'; filename?: string; url: string; mime: string }
+	| { id: string; type: 'step-start' }
+	| { id: string; type: 'step-finish'; reason: string }
+	| { id: string; type: 'snapshot'; snapshot: string }
+	| { id: string; type: 'patch'; hash: string; files: string[] }
+	| { id: string; type: 'agent'; name: string }
+	| { id: string; type: 'retry'; attempt: number; error: UIError }
+	| { id: string; type: 'compaction'; auto: boolean }
+	| { id: string; type: 'subtask'; prompt: string; description: string; agent: string }
 
 export type UIMessage = {
 	id: string
