@@ -142,7 +142,7 @@ describe("webview panel management", () => {
 		}
 		panel.webview.postMessage({ type: "test", data: {} })
 		if (capturedMsg && typeof capturedMsg === 'object' && capturedMsg !== null && 'type' in capturedMsg) {
-			const msg = capturedMsg as { type: string }
+			const msg = capturedMsg
 			expect(msg.type).toBe("test")
 		} else {
 			throw new Error("Captured message does not have expected shape")

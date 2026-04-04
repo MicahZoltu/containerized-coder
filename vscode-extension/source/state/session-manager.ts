@@ -1,6 +1,7 @@
 import type { OpencodeClient, Event as SdkEvent, SessionStatus as SdkSessionStatus, Message, Part, Todo, FileDiff, Session } from "@opencode-ai/sdk/v2"
-import { adaptSessionMetadata, adaptMessages, adaptTodos, adaptFileDiffs, adaptError } from "./session-adapter.js"
-import type { UIState, SessionStatus, UIPart } from "./types.js"
+import { adaptSessionMetadata, adaptMessages, adaptTodos, adaptFileDiffs, adaptPart, adaptMessage } from "./session-adapter.js"
+import type { UIState } from "./types.js"
+import { adaptSessionStatus } from "./types.js"
 import { createInitialState, updateMessage, updatePart, applyPartDelta, removePart, updateStatus, updateTodos, updateFileDiffs, setSyncing } from "./session-store.js"
 
 type Subscriber = (state: UIState) => void
@@ -60,7 +61,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 				throw new Error(`Session ${sessionID} not found`)
 			}
 
-			const adaptedState = this.adaptFullState(sessionData, statusData, messagesData as any[], todosData, diffsData)
+			const adaptedState = this.adaptFullState(sessionData, statusData, messagesData, todosData, diffsData)
 			this.updateState(sessionID, adaptedState)
 
 			this.startPeriodicSync(sessionID)
@@ -137,99 +138,76 @@ export class SessionStateManager implements SessionStateManagerInterface {
 	}
 
 	handleEvent(event: SdkEvent): void {
-		const eventType = event.type
-		const properties = event.properties
-
-		switch (eventType) {
+		switch (event.type) {
 			case "message.updated": {
-				if (properties && typeof properties === 'object' && 'info' in properties && properties.info && typeof properties.info === 'object' && 'id' in properties.info && 'sessionID' in properties.info) {
-					const messageID = (properties.info as any).id
-					const sessionID = (properties.info as any).sessionID
-					this.handleMessageUpdated(sessionID, messageID)
-				}
+				const messageID = event.properties.info.id
+				const sessionID = event.properties.info.sessionID
+				this.handleMessageUpdated(sessionID, messageID)
 				break
 			}
 
 			case "message.part.updated": {
-				if (properties && typeof properties === 'object' && 'part' in properties && properties.part && typeof properties.part === 'object' && 'sessionID' in properties.part && 'messageID' in properties.part && 'id' in properties.part) {
-					const sessionID = (properties.part as any).sessionID
-					const messageID = (properties.part as any).messageID
-					const partID = (properties.part as any).id
-					this.handlePartUpdated(sessionID, messageID, partID, properties.part as any)
-				}
+				const sessionID = event.properties.part.sessionID
+				const messageID = event.properties.part.messageID
+				const partID = event.properties.part.id
+				this.handlePartUpdated(sessionID, messageID, partID, event.properties.part)
 				break
 			}
 
 			case "message.part.delta": {
-				if ('sessionID' in properties && 'messageID' in properties && 'partID' in properties && 'field' in properties && 'delta' in properties) {
-					const sessionID = properties.sessionID as string
-					const messageID = properties.messageID as string
-					const partID = properties.partID as string
-					const field = properties.field as string
-					const delta = properties.delta as string
-					this.handlePartDelta(sessionID, messageID, partID, field, delta)
-				}
+				const sessionID = event.properties.sessionID
+				const messageID = event.properties.messageID
+				const partID = event.properties.partID
+				const field = event.properties.field
+				const delta = event.properties.delta
+				this.handlePartDelta(sessionID, messageID, partID, field, delta)
 				break
 			}
 
 			case "message.part.removed": {
-				if ('sessionID' in properties && 'messageID' in properties && 'partID' in properties) {
-					const sessionID = properties.sessionID as string
-					const messageID = properties.messageID as string
-					const partID = properties.partID as string
-					this.handlePartRemoved(sessionID, messageID, partID)
-				}
+				const sessionID = event.properties.sessionID
+				const messageID = event.properties.messageID
+				const partID = event.properties.partID
+				this.handlePartRemoved(sessionID, messageID, partID)
 				break
 			}
 
 			case "session.status": {
-				if ('sessionID' in properties && 'status' in properties) {
-					const sessionID = properties.sessionID as string
-					const status = properties.status as SdkSessionStatus
-					this.handleStatusUpdated(sessionID, status)
-				}
+				const sessionID = event.properties.sessionID
+				const status = event.properties.status
+				this.handleStatusUpdated(sessionID, status)
 				break
 			}
 
 			case "session.idle": {
-				if ('sessionID' in properties) {
-					const sessionID = properties.sessionID as string
-					this.handleStatusUpdated(sessionID, { type: "idle" })
-				}
+				const sessionID = event.properties.sessionID
+				this.handleStatusUpdated(sessionID, { type: "idle" })
 				break
 			}
 
 			case "todo.updated": {
-				if ('sessionID' in properties && 'todos' in properties) {
-					const sessionID = properties.sessionID as string
-					const todos = properties.todos as Todo[]
-					this.handleTodosUpdated(sessionID, todos)
-				}
+				const sessionID = event.properties.sessionID
+				const todos = event.properties.todos
+				this.handleTodosUpdated(sessionID, todos)
 				break
 			}
 
 			case "session.diff": {
-				if ('sessionID' in properties && 'diff' in properties) {
-					const sessionID = properties.sessionID as string
-					const diffs = properties.diff as FileDiff[]
-					this.handleDiffsUpdated(sessionID, diffs)
-				}
+				const sessionID = event.properties.sessionID
+				const diffs = event.properties.diff
+				this.handleDiffsUpdated(sessionID, diffs)
 				break
 			}
 
 			case "session.deleted": {
-				if (properties && typeof properties === 'object' && 'info' in properties && properties.info && typeof properties.info === 'object' && 'id' in properties.info) {
-					const sessionID = (properties.info as any).id
-					this.disposeSession(sessionID)
-				}
+				const sessionID = event.properties.info.id
+				this.disposeSession(sessionID)
 				break
 			}
 
 			case "session.compacted": {
-				if ('sessionID' in properties) {
-					const sessionID = properties.sessionID as string
-					this.refreshSession(sessionID)
-				}
+				const sessionID = event.properties.sessionID
+				this.refreshSession(sessionID)
 				break
 			}
 		}
@@ -245,15 +223,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 			if (!messageData || !('info' in messageData)) return
 
 			const message = messageData.info
-			const adaptedMessage = {
-				id: message.id,
-				role: message.role,
-				parts: [] as any[],
-				created: message.time.created,
-			}
-			if (message.role === "assistant" && 'completed' in message.time) {
-				; (adaptedMessage as any).completed = message.time.completed
-			}
+			const adaptedMessage = adaptMessage(message, [])
 
 			const newState = updateMessage(sessionData.state, messageID, adaptedMessage)
 			this.updateState(sessionID, newState)
@@ -266,7 +236,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 		const sessionData = this.store.get(sessionID)
 		if (!sessionData) return
 
-		const adaptedPart = this.adaptPart(part)
+		const adaptedPart = adaptPart(part)
 		const newState = updatePart(sessionData.state, messageID, partID, adaptedPart)
 		this.updateState(sessionID, newState)
 	}
@@ -291,7 +261,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 		const sessionData = this.store.get(sessionID)
 		if (!sessionData) return
 
-		const adaptedStatus = this.adaptSessionStatus(status)
+		const adaptedStatus = adaptSessionStatus(status)
 		const newState = updateStatus(sessionData.state, adaptedStatus)
 		this.updateState(sessionID, newState)
 	}
@@ -314,77 +284,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 		this.updateState(sessionID, newState)
 	}
 
-	private adaptPart(part: Part): UIPart {
-		const type = part.type
-		switch (type) {
-			case "text":
-				return { id: part.id, type: "text", text: part.text }
-			case "reasoning":
-				return { id: part.id, type: "reasoning", text: part.text }
-			case "tool":
-				return { ...this.adaptToolPart(part.state), id: part.id }
-			case "file": {
-				const filePart: any = { id: part.id, type: "file", url: part.url, mime: part.mime }
-				if (part.filename !== undefined) {
-					filePart.filename = part.filename
-				}
-				return filePart
-			}
-			case "step-start":
-				return { id: part.id, type: "step-start" }
-			case "step-finish":
-				return { id: part.id, type: "step-finish", reason: part.reason }
-			case "snapshot":
-				return { id: part.id, type: "snapshot", snapshot: part.snapshot }
-			case "patch":
-				return { id: part.id, type: "patch", hash: part.hash, files: part.files }
-			case "agent":
-				return { id: part.id, type: "agent", name: part.name }
-			case "retry":
-				return { id: part.id, type: "retry", attempt: part.attempt, error: adaptError(part.error) }
-			case "compaction":
-				return { id: part.id, type: "compaction", auto: part.auto }
-			case "subtask":
-				return { id: part.id, type: "subtask", prompt: part.prompt, description: part.description, agent: part.agent }
-			default:
-				return { id: (part as any).id, type: "text", text: "" }
-		}
-	}
 
-	private adaptToolPart(state: any): any {
-		const status = state.status
-		switch (status) {
-			case "pending":
-				return { type: "tool", status: "pending" }
-			case "running": {
-				const runningPart: any = { type: "tool", status: "running" }
-				if (state.title !== undefined) {
-					runningPart.title = state.title
-				}
-				return runningPart
-			}
-			case "completed": {
-				const completedPart: any = { type: "tool", status: "completed", output: state.output }
-				if (state.title !== undefined) {
-					completedPart.title = state.title
-				}
-				if (state.attachments !== undefined) {
-					completedPart.attachments = state.attachments.map((a: Part) => this.adaptPart(a))
-				}
-				return completedPart
-			}
-			case "error":
-				return { type: "tool", status: "error", error: state.error }
-			default:
-				return { type: "tool", status: "pending" }
-		}
-	}
-
-	private adaptSessionStatus(status: SdkSessionStatus): SessionStatus {
-		if (status.type === 'idle') return 'idle'
-		if (status.type === 'busy') return 'busy'
-		return 'retry'
-	}
 
 	private updateState(sessionID: string, newState: UIState): void {
 		const sessionData = this.store.get(sessionID)
@@ -428,7 +328,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 			if (!currentStatus) return
 
 			const localState = sessionData.state
-			const statusChanged = this.adaptSessionStatus(currentStatus) !== localState.session.status
+			const statusChanged = adaptSessionStatus(currentStatus) !== localState.session.status
 			const messageCountChanged = currentMessages.length !== localState.messages.length
 
 			if (statusChanged || messageCountChanged) {

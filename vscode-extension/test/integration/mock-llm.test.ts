@@ -16,9 +16,10 @@ describe("mock-llm server", () => {
 		})
 
 		expect(response.ok).toBe(true)
-		const body = (await response.json()) as { choices: Array<{ message: { content: string } }> }
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body = await response.json() as any
 		const choice = body.choices[0]
-		expect(choice?.message.content).toBe("Default response")
+		expect(choice.message.content).toBe("Default response")
 	})
 
 	test("responds with routed response when substring matches", async () => {
@@ -36,7 +37,8 @@ describe("mock-llm server", () => {
 		})
 
 		expect(response.ok).toBe(true)
-		const body = (await response.json()) as { choices: Array<{ message: { content: string } }> }
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body = (await response.json()) as any
 		const choice = body.choices[0]
 		expect(choice?.message.content).toBe("I found 5 files")
 	})
@@ -54,7 +56,8 @@ describe("mock-llm server", () => {
 			}),
 		})
 		expect(response1.ok).toBe(true)
-		const body1 = (await response1.json()) as { choices: Array<{ message: { content: string } }> }
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body1 = (await response1.json()) as any
 		const choice1 = body1.choices[0]
 		expect(choice1?.message.content).toBe("banana")
 
@@ -68,7 +71,8 @@ describe("mock-llm server", () => {
 			}),
 		})
 		expect(response2.ok).toBe(true)
-		const body2 = (await response2.json()) as { choices: Array<{ message: { content: string } }> }
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body2 = (await response2.json()) as any
 		const choice2 = body2.choices[0]
 		expect(choice2?.message.content).toBe("Hello.")
 
@@ -82,7 +86,8 @@ describe("mock-llm server", () => {
 			}),
 		})
 		expect(response3.ok).toBe(true)
-		const body3 = (await response3.json()) as { choices: Array<{ message: { content: string } }> }
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body3 = (await response3.json()) as any
 		const choice3 = body3.choices[0]
 		expect(choice3?.message.content).toBe("banana")
 	})
@@ -129,9 +134,8 @@ describe("mock-llm server", () => {
 		})
 
 		expect(response.ok).toBe(true)
-		const body = (await response.json()) as {
-			choices: Array<{ message: { tool_calls?: Array<{ id: string; function: { name: string } }> } }>
-		}
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body = (await response.json()) as any
 		const choice = body.choices[0]
 		const toolCalls = choice?.message.tool_calls
 		expect(toolCalls).toBeDefined()
@@ -154,7 +158,8 @@ describe("mock-llm server", () => {
 		})
 
 		expect(response.status).toBe(500)
-		const body = (await response.json()) as { error: { type: string; message: string } }
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body = (await response.json()) as any
 		expect(body.error.type).toBe("mock_error")
 		expect(body.error.message).toContain("Multiple routes matched")
 	})
@@ -175,7 +180,8 @@ describe("mock-llm server", () => {
 		})
 
 		expect(response.ok).toBe(true)
-		const body = (await response.json()) as { choices: Array<{ message: { content: string } }> }
+		// since this is just a mock LLM server that we don't interface with directly in production, we are being relaxed with typecasts to any
+		const body = (await response.json()) as any
 		const choice = body.choices[0]
 		expect(choice?.message.content).toBe("Hello.")
 	})

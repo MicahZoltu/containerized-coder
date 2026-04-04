@@ -25,7 +25,7 @@ class TestSessionContext {
 				if (index !== -1) this.listeners.splice(index, 1)
 			}
 		}
-	}) as () => { dispose: () => void }
+	})
 
 	dispose(): void {
 		this.listeners = []

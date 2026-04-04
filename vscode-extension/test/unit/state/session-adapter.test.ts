@@ -1,7 +1,7 @@
-import type { AgentPart, ApiError, AssistantMessage, CompactionPart, ContextOverflowError, FileDiff, FilePart, Message, MessageAbortedError, MessageOutputLengthError, Part, PatchPart, ProviderAuthError, ReasoningPart, RetryPart, SessionStatus as SdkSessionStatus, Session, SnapshotPart, StepFinishPart, StepStartPart, StructuredOutputError, SubtaskPart, TextPart, Todo, ToolPart, ToolStateCompleted, ToolStateError, ToolStatePending, ToolStateRunning, UnknownError, UserMessage } from "@opencode-ai/sdk/v2"
+import type { ApiError, AssistantMessage, ContextOverflowError, FileDiff, FilePart, MessageAbortedError, MessageOutputLengthError, Part, PatchPart, ProviderAuthError, ReasoningPart, SessionStatus as SdkSessionStatus, Session, SnapshotPart, StepFinishPart, StepStartPart, StructuredOutputError, TextPart, ToolPart, ToolStateCompleted, ToolStateError, ToolStatePending, ToolStateRunning, UnknownError, UserMessage } from "@opencode-ai/sdk/v2"
 import { describe, expect, test } from "bun:test"
-import { adaptError, adaptFileDiffs, adaptMessages, adaptPart, adaptSessionMetadata, adaptTodos } from "./session-adapter.js"
-import { assertNever } from "../utils/miscellaneous.js"
+import { adaptError, adaptFileDiffs, adaptMessages, adaptPart, adaptSessionMetadata, adaptTodos } from "../../../source/state/session-adapter.js"
+import { assertNever } from "../../../source/utils/miscellaneous.js"
 
 function createSession(overrides: Partial<Session> = {}): Session {
 	return {
@@ -159,7 +159,7 @@ describe("adaptError", () => {
 	test("adapts MessageOutputLengthError with fallback message", () => {
 		const error: MessageOutputLengthError = {
 			name: "MessageOutputLengthError",
-			data: { someOtherKey: 123 } as any,
+			data: { someOtherKey: 123 },
 		}
 		const result = adaptError(error)
 
@@ -171,7 +171,7 @@ describe("adaptError", () => {
 	test("adapts MessageOutputLengthError with string message", () => {
 		const error: MessageOutputLengthError = {
 			name: "MessageOutputLengthError",
-			data: { message: "Output too long" } as any,
+			data: { message: "Output too long" },
 		}
 		const result = adaptError(error)
 
@@ -474,24 +474,24 @@ describe("adaptPart", () => {
 	})
 
 	test("adapts agent part", () => {
-		const sdkPart: AgentPart = {
+		const sdkPart = {
 			id: "part-agent",
 			sessionID: "session-1",
 			messageID: "msg-1",
 			type: "agent",
 			name: "agent-xyz",
-		}
+		} as const
 		const result = adaptPart(sdkPart)
 
 		expect(result).toEqual({ id: "part-agent", type: "agent", name: "agent-xyz" })
 	})
 
 	test("adapts retry part", () => {
-		const apiError: ApiError = {
+		const apiError = {
 			name: "APIError",
 			data: { message: "Retry due to API error", isRetryable: true },
-		}
-		const sdkPart: RetryPart = {
+		} as const
+		const sdkPart = {
 			id: "part-retry",
 			sessionID: "session-1",
 			messageID: "msg-1",
@@ -499,7 +499,7 @@ describe("adaptPart", () => {
 			attempt: 2,
 			error: apiError,
 			time: { created: 1000 },
-		}
+		} as const
 		const result = adaptPart(sdkPart)
 
 		expect(result).toEqual({
@@ -515,20 +515,20 @@ describe("adaptPart", () => {
 	})
 
 	test("adapts compaction part", () => {
-		const sdkPart: CompactionPart = {
+		const sdkPart = {
 			id: "part-compaction",
 			sessionID: "session-1",
 			messageID: "msg-1",
 			type: "compaction",
 			auto: false,
-		}
+		} as const
 		const result = adaptPart(sdkPart)
 
 		expect(result).toEqual({ id: "part-compaction", type: "compaction", auto: false })
 	})
 
 	test("adapts subtask part", () => {
-		const sdkPart: SubtaskPart = {
+		const sdkPart = {
 			id: "part-subtask",
 			sessionID: "session-1",
 			messageID: "msg-1",
@@ -536,7 +536,7 @@ describe("adaptPart", () => {
 			prompt: "Do task",
 			description: "Task desc",
 			agent: "agent-1",
-		}
+		} as const
 		const result = adaptPart(sdkPart)
 
 		expect(result).toEqual({ id: "part-subtask", type: "subtask", prompt: "Do task", description: "Task desc", agent: "agent-1" })
@@ -545,9 +545,9 @@ describe("adaptPart", () => {
 
 describe("adaptMessages", () => {
 	test("adapts messages and groups parts by messageID", () => {
-		const messages: Message[] = [
-			createUserMessage({ id: "msg-1" }) as unknown as Message,
-			createAssistantMessage({ id: "msg-2" }) as unknown as Message,
+		const messages = [
+			createUserMessage({ id: "msg-1" }),
+			createAssistantMessage({ id: "msg-2" }),
 		]
 		const parts: Part[] = [
 			{
@@ -556,7 +556,7 @@ describe("adaptMessages", () => {
 				messageID: "msg-1",
 				type: "text",
 				text: "User message text",
-			} as TextPart,
+			},
 			{
 				id: "part-2",
 				sessionID: "session-1",
@@ -564,14 +564,14 @@ describe("adaptMessages", () => {
 				type: "reasoning",
 				text: "Assistant reasoning",
 				time: { start: 1000 },
-			} as ReasoningPart,
+			},
 			{
 				id: "part-3",
 				sessionID: "session-1",
 				messageID: "msg-2",
 				type: "text",
 				text: "Assistant answer",
-			} as TextPart,
+			},
 		]
 
 		const result = adaptMessages(messages, parts)
@@ -598,7 +598,7 @@ describe("adaptMessages", () => {
 	})
 
 	test("handles messages with no parts", () => {
-		const messages: Message[] = [createUserMessage({}) as unknown as Message]
+		const messages = [createUserMessage({})]
 		const parts: Part[] = []
 		const result = adaptMessages(messages, parts)
 
@@ -612,12 +612,12 @@ describe("adaptMessages", () => {
 	})
 
 	test("includes error for assistant messages", () => {
-		const apiError: ApiError = {
+		const apiError = {
 			name: "APIError",
 			data: { message: "Error", isRetryable: false },
-		}
-		const messages: Message[] = [
-			createAssistantMessage({ error: apiError }) as unknown as Message,
+		} as const
+		const messages = [
+			createAssistantMessage({ error: apiError }),
 		]
 		const parts: Part[] = []
 		const result = adaptMessages(messages, parts)
@@ -632,12 +632,12 @@ describe("adaptMessages", () => {
 
 describe("adaptTodos", () => {
 	test("adapts valid todos", () => {
-		const sdkTodos: Todo[] = [
+		const sdkTodos = [
 			{ content: "Task 1", status: "pending", priority: "high", id: "1" },
 			{ content: "Task 2", status: "in_progress", priority: "medium", id: "2" },
 			{ content: "Task 3", status: "completed", priority: "low", id: "3" },
 			{ content: "Task 4", status: "cancelled", priority: "medium", id: "4" },
-		] as unknown as Todo[]
+		]
 		const result = adaptTodos(sdkTodos)
 
 		const first = result[0]!
@@ -652,7 +652,7 @@ describe("adaptTodos", () => {
 	})
 
 	test("defaults invalid status to 'pending'", () => {
-		const sdkTodos: Todo[] = [{ content: "Bad", status: "invalid", priority: "high", id: "1" }] as unknown as Todo[]
+		const sdkTodos = [{ content: "Bad", status: "invalid", priority: "high", id: "1" }]
 		const result = adaptTodos(sdkTodos)
 
 		const first = result[0]!
@@ -660,7 +660,7 @@ describe("adaptTodos", () => {
 	})
 
 	test("defaults invalid priority to 'medium'", () => {
-		const sdkTodos: Todo[] = [{ content: "Bad", status: "pending", priority: "invalid", id: "1" }] as unknown as Todo[]
+		const sdkTodos = [{ content: "Bad", status: "pending", priority: "invalid", id: "1" }]
 		const result = adaptTodos(sdkTodos)
 
 		const first = result[0]!
@@ -696,9 +696,9 @@ describe("adaptFileDiffs", () => {
 
 	test("defaults missing status to 'modified'", () => {
 		// Simulate SDK diff without status field (using plain object)
-		const sdkDiffs: FileDiff[] = [
+		const sdkDiffs = [
 			{ file: "b.txt", before: "", after: "new", additions: 1, deletions: 0 },
-		] as unknown as FileDiff[]
+		]
 		const result = adaptFileDiffs(sdkDiffs)
 
 		const first = result[0]!
@@ -706,7 +706,7 @@ describe("adaptFileDiffs", () => {
 	})
 
 	test("handles added file", () => {
-		const sdkDiffs: FileDiff[] = [{ file: "new.txt", before: "", after: "content", additions: 1, deletions: 0, status: "added" }] as FileDiff[]
+		const sdkDiffs: FileDiff[] = [{ file: "new.txt", before: "", after: "content", additions: 1, deletions: 0, status: "added" }]
 		const result = adaptFileDiffs(sdkDiffs)
 
 		const first = result[0]!
@@ -714,7 +714,7 @@ describe("adaptFileDiffs", () => {
 	})
 
 	test("handles deleted file", () => {
-		const sdkDiffs: FileDiff[] = [{ file: "old.txt", before: "content", after: "", additions: 0, deletions: 1, status: "deleted" }] as FileDiff[]
+		const sdkDiffs: FileDiff[] = [{ file: "old.txt", before: "content", after: "", additions: 0, deletions: 1, status: "deleted" }]
 		const result = adaptFileDiffs(sdkDiffs)
 
 		const first = result[0]!

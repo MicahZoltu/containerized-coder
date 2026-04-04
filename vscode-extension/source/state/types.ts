@@ -69,16 +69,6 @@ export type UIState = {
 	lastUpdated: number
 }
 
-export type StateUpdate =
-	| { type: 'SESSION_INIT'; sessionID: string; state: UIState }
-	| { type: 'MESSAGE_UPDATED'; sessionID: string; messageID: string; message: UIMessage }
-	| { type: 'PART_UPDATED'; sessionID: string; messageID: string; partID: string; part: UIPart }
-	| { type: 'PART_DELTA'; sessionID: string; messageID: string; partID: string; field: string; delta: string }
-	| { type: 'PART_REMOVED'; sessionID: string; messageID: string; partID: string }
-	| { type: 'STATUS_UPDATED'; sessionID: string; status: SessionStatus }
-	| { type: 'TODOS_UPDATED'; sessionID: string; todos: UITodo[] }
-	| { type: 'DIFFS_UPDATED'; sessionID: string; diffs: UIFileDiff[] }
-
 export function adaptSessionStatus(status: SdkSessionStatus): SessionStatus {
 	if (status.type === 'idle') return 'idle'
 	if (status.type === 'busy') return 'busy'

@@ -21,10 +21,9 @@ export function adaptSessionMetadata(sdkSession: Session, sdkStatus: SdkSessionS
 export function adaptError(sdkError: ApiError | ProviderAuthError | UnknownError | MessageOutputLengthError | MessageAbortedError | StructuredOutputError | ContextOverflowError): UIError {
 	switch (sdkError.name) {
 		case "APIError": {
-			const apiError = sdkError as ApiError
-			const data = apiError.data
+			const data = sdkError.data
 			return {
-				name: apiError.name,
+				name: sdkError.name,
 				message: data.message,
 				isRetryable: data.isRetryable,
 				...(data.statusCode !== undefined && { statusCode: data.statusCode }),
@@ -34,51 +33,45 @@ export function adaptError(sdkError: ApiError | ProviderAuthError | UnknownError
 			}
 		}
 		case "ProviderAuthError": {
-			const providerError = sdkError as ProviderAuthError
 			return {
-				name: providerError.name,
-				message: providerError.data.message,
+				name: sdkError.name,
+				message: sdkError.data.message,
 				isRetryable: false,
 			}
 		}
 		case "UnknownError": {
-			const unknownError = sdkError as UnknownError
 			return {
-				name: unknownError.name,
-				message: unknownError.data.message,
+				name: sdkError.name,
+				message: sdkError.data.message,
 				isRetryable: false,
 			}
 		}
 		case "MessageOutputLengthError": {
-			const lengthError = sdkError as MessageOutputLengthError
-			const message = typeof lengthError.data.message === 'string' ? lengthError.data.message : "Message output length error"
+			const message = typeof sdkError.data.message === 'string' ? sdkError.data.message : "Message output length error"
 			return {
-				name: lengthError.name,
+				name: sdkError.name,
 				message,
 				isRetryable: false,
 			}
 		}
 		case "MessageAbortedError": {
-			const abortedError = sdkError as MessageAbortedError
 			return {
-				name: abortedError.name,
-				message: abortedError.data.message,
+				name: sdkError.name,
+				message: sdkError.data.message,
 				isRetryable: false,
 			}
 		}
 		case "StructuredOutputError": {
-			const structuredError = sdkError as StructuredOutputError
 			return {
-				name: structuredError.name,
-				message: structuredError.data.message,
+				name: sdkError.name,
+				message: sdkError.data.message,
 				isRetryable: false,
 			}
 		}
 		case "ContextOverflowError": {
-			const overflowError = sdkError as ContextOverflowError
-			const message = overflowError.data.message
+			const message = sdkError.data.message
 			return {
-				name: overflowError.name,
+				name: sdkError.name,
 				message,
 				isRetryable: false,
 			}
@@ -177,13 +170,26 @@ export function adaptMessages(sdkMessages: Message[], sdkParts: Part[]): UIMessa
 }
 
 function validateTodoStatus(status: string): UITodo["status"] {
-	const valid: UITodo["status"][] = ["pending", "in_progress", "completed", "cancelled"]
-	return valid.includes(status as UITodo["status"]) ? (status as UITodo["status"]) : "pending"
+	switch (status) {
+		case 'pending':
+		case 'in_progress':
+		case 'completed':
+		case 'cancelled':
+			return status
+		default:
+			return 'pending'
+	}
 }
 
 function validateTodoPriority(priority: string): UITodo["priority"] {
-	const valid: UITodo["priority"][] = ["high", "medium", "low"]
-	return valid.includes(priority as UITodo["priority"]) ? (priority as UITodo["priority"]) : "medium"
+	switch (priority) {
+		case 'high':
+		case 'medium':
+		case 'low':
+			return priority
+		default:
+			return 'medium'
+	}
 }
 
 export function adaptTodos(sdkTodos: Todo[]): UITodo[] {
