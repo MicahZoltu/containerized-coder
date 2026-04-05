@@ -11,7 +11,8 @@ import { EventEmitter } from "./utils/emitter.js"
 import { nowAsString, setupPeriodicRefresh } from "./utils/miscellaneous.js"
 import { handleSdkEvent, startListeningForOpencodeEvents } from "./utils/sdk.js"
 import { closeSessionPanel, openSessionPanel } from "./webview/panel.js"
-import { SessionStateManager } from "./state/session-manager.js"
+import { createSessionStateManager } from "./state/session-manager.js"
+import { fetchFullSession, fetchMessage, fetchStatusAndMessages } from "./state/sdk-session-data-fetcher.js"
 
 // entrypoint called by VSCode when extension is loaded
 export async function activate(context: vscode.ExtensionContext) {
@@ -68,11 +69,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		const curriedGetTodos = getTodos.bind(undefined, client, sessionContext)
 		const curriedGetFileDiffs = getFileDiffs.bind(undefined, client, sessionContext)
 		const curriedGetSessions = fetchSessions.bind(undefined, client)
+		const curriedFetchFullSession = fetchFullSession.bind(undefined, client)
+		const curriedFetchMessage = fetchMessage.bind(undefined, client)
+		const curriedFetchStatusAndMessages = fetchStatusAndMessages.bind(undefined, client)
 
 		const sessionPanels = new Map<string, vscode.WebviewPanel>()
-		const sessionManager = new SessionStateManager()
-		sessionManager.setClient(client)
-		sessionManager.start()
+		const sessionManager = await createSessionStateManager(curriedFetchFullSession, curriedFetchMessage, curriedFetchStatusAndMessages)
 
 		const curriedHandleSdkEvent = handleSdkEvent.bind(undefined, noticeError, sessionsEmitter, sessionContext, todoEmitter, fileEmitter, closeSessionPanel.bind(undefined, sessionPanels))
 		const curriedManagerHandleEvent = sessionManager.handleEvent.bind(sessionManager)
@@ -95,7 +97,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			outputChannel,
 			modelSelector,
 			sessionContext,
-			{ dispose: () => sessionManager.stop() },
+			{ dispose: () => sessionManager.dispose() },
 
 			todoEmitter,
 			fileEmitter,

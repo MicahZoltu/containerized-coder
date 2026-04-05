@@ -1,4 +1,5 @@
-import { afterEach, beforeEach, describe, expect, jest, mock, test } from "bun:test"
+import { mockFn } from '@tkoehlerlg/bun-mock-extended'
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test"
 import { getNonce, isPlainObject, setupPeriodicRefresh } from "../../../source/utils/miscellaneous.js"
 import { assert } from "../../helpers.js"
 
@@ -66,7 +67,6 @@ describe("setupPeriodicRefresh", () => {
 	})
 
 	afterEach(() => {
-		mock.clearAllMocks()
 		jest.useRealTimers()
 	})
 
@@ -90,7 +90,7 @@ describe("setupPeriodicRefresh", () => {
 	})
 
 	test("returns disposable that stops interval", () => {
-		const refreshFn = mock().mockResolvedValue(undefined)
+		const refreshFn = mockFn<() => Promise<undefined>>()
 
 		const disposable = setupPeriodicRefresh(refreshFn, () => {})
 
@@ -104,7 +104,7 @@ describe("setupPeriodicRefresh", () => {
 	})
 
 	test("continues calling refresh on subsequent intervals", () => {
-		const refreshFn = mock().mockResolvedValue(undefined)
+		const refreshFn = mockFn<() => Promise<undefined>>().mockResolvedValue(undefined)
 
 		setupPeriodicRefresh(refreshFn, () => {})
 

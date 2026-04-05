@@ -20,7 +20,6 @@ describe("webview panel management", () => {
 			panel.dispose()
 		}
 		panels.clear()
-		sessionManager.stop()
 	})
 
 	test("openSessionPanel creates new panel with correct properties", () => {
