@@ -116,7 +116,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 			setupPeriodicRefresh(curriedGetModel, noticeError),
 
-			{ dispose: () => { sessionPanels.forEach(panel => panel.dispose); sessionPanels.clear() } },
+			{ dispose: () => { sessionPanels.forEach(panel => panel.dispose()); sessionPanels.clear() } },
 			...await startListeningForOpencodeEvents(client, noticeError, noticeInfo, curriedHandleSdkEvent, curriedManagerHandleEvent),
 		)
 

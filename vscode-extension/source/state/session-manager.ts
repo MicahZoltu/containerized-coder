@@ -52,7 +52,9 @@ export class SessionStateManager implements SessionStateManagerInterface {
 			])
 
 			const sessionData = sessionRes.data
-			const messagesData = (messagesRes.data ?? []).map(m => 'info' in m ? m.info : m)
+			const messagesWithParts = messagesRes.data ?? []
+			const messagesData = messagesWithParts.map(m => 'info' in m ? m.info : m)
+			const allParts = messagesWithParts.flatMap(m => 'parts' in m ? m.parts ?? [] : [])
 			const todosData = todosRes.data ?? []
 			const diffsData = diffsRes.data ?? []
 			const statusData = statusRes.data?.[sessionID]
@@ -61,7 +63,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 				throw new Error(`Session ${sessionID} not found`)
 			}
 
-			const adaptedState = this.adaptFullState(sessionData, statusData, messagesData, todosData, diffsData)
+			const adaptedState = this.adaptFullState(sessionData, statusData, messagesData, allParts, todosData, diffsData)
 			this.updateState(sessionID, adaptedState)
 
 			this.startPeriodicSync(sessionID)
@@ -78,6 +80,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 		session: Session,
 		status: SdkSessionStatus,
 		messages: Message[],
+		parts: Part[],
 		todos: Todo[],
 		diffs: FileDiff[],
 	): UIState {
@@ -86,7 +89,7 @@ export class SessionStateManager implements SessionStateManagerInterface {
 
 		const stateWithMessages = {
 			...initialState,
-			messages: adaptMessages(messages, []),
+			messages: adaptMessages(messages, parts),
 		}
 
 		const stateWithTodos = {
@@ -223,7 +226,8 @@ export class SessionStateManager implements SessionStateManagerInterface {
 			if (!messageData || !('info' in messageData)) return
 
 			const message = messageData.info
-			const adaptedMessage = adaptMessage(message, [])
+			const parts = messageData.parts ?? []
+			const adaptedMessage = adaptMessage(message, parts)
 
 			const newState = updateMessage(sessionData.state, messageID, adaptedMessage)
 			this.updateState(sessionID, newState)

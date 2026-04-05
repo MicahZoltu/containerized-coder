@@ -1,6 +1,7 @@
 import { type OpencodeClient, type Event as SdkEvent } from "@opencode-ai/sdk/v2"
 import type { SessionContext } from "../gui/sessions.js"
 import { EventEmitter } from "./emitter.js"
+import { isPlainObject } from "./miscellaneous.js"
 
 export function isSdkEvent(obj: unknown): obj is SdkEvent {
 	if (!isPlainObject(obj)) return false
@@ -10,15 +11,6 @@ export function isSdkEvent(obj: unknown): obj is SdkEvent {
 		if (!isPlainObject(properties)) return false
 	}
 	return true
-}
-
-function isPlainObject(candidate: unknown): candidate is Record<string, unknown> {
-	if (typeof candidate !== 'object') return false
-	if (candidate === null) return false
-	const prototype = Object.getPrototypeOf(candidate)
-	if (prototype === null) return true
-	if (prototype === Object.prototype) return true
-	return false
 }
 
 export function handleSdkEvent(noticeError: (message: string, error: unknown) => void, sessionsEmitter: EventEmitter<void>, sessionContext: SessionContext, todoEmitter: EventEmitter<void>, fileEmitter: EventEmitter<void>, closeSessionPanel: (sessionId: string) => void, event: SdkEvent) {
