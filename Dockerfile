@@ -1,7 +1,7 @@
 ###
 # Stage 1: Extension Builder
 ###
-FROM oven/bun:1.3.9@sha256:bb638d8a33d3744d4f33ab910c08de5fc7ab217a60e387628b53704afdb0a635 AS extension-builder
+FROM oven/bun:1.3.11@sha256:38919894db4e117a37f74e3dca503e84f24d97f19cabc5f499a289c2a5d0db7c AS extension-builder
 
 WORKDIR /build
 
@@ -34,7 +34,7 @@ RUN bun run package
 ###
 # Stage 2: OpenCode Builder
 ###
-FROM oven/bun:1.3.9@sha256:bb638d8a33d3744d4f33ab910c08de5fc7ab217a60e387628b53704afdb0a635 AS opencode-builder
+FROM oven/bun:1.3.11@sha256:38919894db4e117a37f74e3dca503e84f24d97f19cabc5f499a289c2a5d0db7c AS opencode-builder
 
 WORKDIR /build
 
@@ -52,14 +52,14 @@ RUN <<EOF
 	rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN git clone --depth 1 --branch v1.1.53 https://github.com/anomalyco/opencode.git .
+RUN git clone --depth 1 --branch v1.3.13 https://github.com/anomalyco/opencode.git .
 RUN git fetch --tags
-RUN test "$(git rev-parse HEAD)" = "579902ace6e9fb925f50b7d9fdf11a6b47895307"
+RUN test "$(git rev-parse HEAD)" = "6314f09c14fdd6a3ab8bedc4f7b7182647551d12"
 
 # Apply patch: Add focusable={false} to Session component
 RUN sed -i '/scrollAcceleration={scrollAcceleration()}/a\              focusable={false}' /build/packages/opencode/src/cli/cmd/tui/routes/session/index.tsx
 
-RUN bun install --frozen-lockfile
+RUN bun install --ignore-scripts --frozen-lockfile
 RUN cd packages/opencode && bun run build -- --single
 
 # Resolve symlinks in place for images folder
