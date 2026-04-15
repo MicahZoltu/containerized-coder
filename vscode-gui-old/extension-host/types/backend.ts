@@ -309,6 +309,7 @@ export type PermissionReply = "once" | "always" | "reject"
 export type ServerEvent =
 	| { type: "message.updated"; properties: { info: MessageInfo } }
 	| { type: "message.part.updated"; properties: { part: Part; delta?: string } }
+	| { type: "message.part.delta"; properties: { sessionID: string; messageID: string; partID: string; field: string; delta: string } }
 	| { type: "message.part.removed"; properties: { sessionID: string; messageID: string; partID: string } }
 	| { type: "session.status"; properties: { sessionID: string; status: SessionStatus } }
 	| { type: "session.error"; properties: { sessionID?: string; error: AssistantError } }

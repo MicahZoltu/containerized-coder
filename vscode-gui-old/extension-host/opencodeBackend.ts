@@ -339,6 +339,33 @@ export class OpencodeBackend {
 				break
 			}
 
+			case "message.part.delta": {
+				const { sessionID, messageID, partID, field, delta } = event.properties
+
+				// Check if this is an assistant message
+				const role = this.messageRoles.get(messageID)
+				if (role !== "assistant") {
+					return
+				}
+
+				const callback = this.onOperationCallbacks.get(sessionID)
+				if (!callback) {
+					return
+				}
+
+				const existingOp = this.activeOperations.get(partID)
+				// Only text and thinking operations have content that can be incrementally updated
+				if (existingOp && field === "text" && (existingOp.type === "thinking" || existingOp.type === "text")) {
+					const updatedOp = {
+						...existingOp,
+						content: (existingOp.content || "") + delta,
+					}
+					this.activeOperations.set(partID, updatedOp as Operation)
+					callback(updatedOp as Operation)
+				}
+				break
+			}
+
 			case "message.part.removed": {
 				const { sessionID, messageID, partID } = event.properties
 				const existingOp = this.activeOperations.get(partID)
