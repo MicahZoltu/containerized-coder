@@ -120,10 +120,6 @@ export function partToOperation(part: Part, messageInfo: MessageInfo | null): Op
 
 	switch (part.type) {
 		case "text": {
-			// Skip empty text operations
-			if (!part.text || part.text.trim() === "") {
-				return null
-			}
 			const model =
 				messageInfo && messageInfo.role === "assistant"
 					? { providerID: messageInfo.providerID, modelID: messageInfo.modelID }
