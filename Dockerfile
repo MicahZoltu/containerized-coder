@@ -59,6 +59,9 @@ RUN test "$(git rev-parse HEAD)" = "6314f09c14fdd6a3ab8bedc4f7b7182647551d12"
 # Apply patch: Add focusable={false} to Session component
 RUN sed -i '/scrollAcceleration={scrollAcceleration()}/a\              focusable={false}' /build/packages/opencode/src/cli/cmd/tui/routes/session/index.tsx
 
+# Fix broken build reproducibility
+RUN sed -i 's/ghostty-web#main/ghostty-web#4af877d52b523754f113b87084b69835b752fb2c/g' /build/packages/app/package.json
+
 RUN bun install --ignore-scripts --frozen-lockfile
 RUN cd packages/opencode && bun run build -- --single
 
