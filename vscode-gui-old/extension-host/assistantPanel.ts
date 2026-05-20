@@ -1110,9 +1110,9 @@ export class AssistantPanel {
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>OpenCode Assistant</title>
-	<link rel="stylesheet" href="${webviewUri}/vscode-markdown.css">
-	<link rel="stylesheet" href="${webviewUri}/vscode-highlight.css">
-	<link rel="stylesheet" href="${webviewUri}/styles.css">
+	<link rel="stylesheet" href="${webviewUri}/vscode-markdown.css" crossOrigin="anonymous">
+	<link rel="stylesheet" href="${webviewUri}/vscode-highlight.css" crossOrigin="anonymous">
+	<link rel="stylesheet" href="${webviewUri}/styles.css" crossOrigin="anonymous">
 </head>
 <body>
 	<div id="top-bar">
