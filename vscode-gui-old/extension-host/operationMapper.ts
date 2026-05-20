@@ -2,6 +2,11 @@ import type { Part, MessageInfo, AssistantError } from "./types/backend"
 import type { Operation, ToolOperation } from "./types/operations"
 import { log } from "./logger"
 
+let nextOperationId = 0
+function uniqueId(prefix: string): string {
+	return `${prefix}-${++nextOperationId}`
+}
+
 /**
  * Extracts tool-specific metadata from backend metadata
  */
@@ -474,7 +479,7 @@ export function createErrorOperation(error: AssistantError, sessionId: string, r
 	}
 
 	return {
-		id: `error-${Date.now()}`,
+		id: uniqueId("error"),
 		type: "error",
 		title,
 		error: errorMessage,
@@ -484,7 +489,7 @@ export function createErrorOperation(error: AssistantError, sessionId: string, r
 		status: "error",
 		sessionId,
 		messageId: relatedMessageId || sessionId,
-		partId: `error-${Date.now()}`,
+		partId: uniqueId("error-part"),
 		...extra,
 	}
 }
@@ -494,7 +499,7 @@ export function createErrorOperation(error: AssistantError, sessionId: string, r
  */
 export function createStartOperation(sessionId: string): Operation {
 	return {
-		id: `start-${Date.now()}`,
+		id: uniqueId("start"),
 		type: "start",
 		title: "Start of history",
 		content: "",
@@ -503,7 +508,7 @@ export function createStartOperation(sessionId: string): Operation {
 		status: "complete",
 		sessionId,
 		messageId: sessionId,
-		partId: `start-${Date.now()}`,
+		partId: uniqueId("start-part"),
 	}
 }
 
@@ -518,7 +523,7 @@ export function createUserMessageOperation(
 	timestamp?: number,
 ): Operation {
 	return {
-		id: `user-${Date.now()}`,
+		id: uniqueId("user"),
 		type: "user-message",
 		title: "You",
 		content,
@@ -527,7 +532,7 @@ export function createUserMessageOperation(
 		status: "complete",
 		sessionId,
 		messageId: sessionId,
-		partId: `user-${Date.now()}`,
+		partId: uniqueId("user-part"),
 		model,
 		agent,
 	}
