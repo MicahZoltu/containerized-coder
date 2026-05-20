@@ -918,7 +918,7 @@ export class AssistantPanel {
 		this.addOperation(createUserMessageOperation(this.sessionId, prompt, model || undefined, agent))
 
 		try {
-			await backend.sendMessage(this.sessionId, prompt, agent)
+			await backend.sendMessage(this.sessionId, prompt, agent, model || undefined)
 		} catch (err) {
 			logError("Failed to send prompt:", err)
 			this.sendMessage({

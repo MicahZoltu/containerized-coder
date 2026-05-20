@@ -29,6 +29,12 @@ interface Session {
 	}
 }
 
+interface PromptAsyncBody {
+	parts: { type: "text"; text: string }[]
+	agent?: string
+	model?: { providerID: string; modelID: string }
+}
+
 export class OpencodeBackend {
 	private process: ChildProcess | null = null
 	private port: number | null = null
@@ -644,16 +650,19 @@ export class OpencodeBackend {
 		}
 	}
 
-	async sendMessage(sessionId: string, text: string, agent?: string): Promise<void> {
+	async sendMessage(sessionId: string, text: string, agent?: string, model?: { providerID: string; modelID: string }): Promise<void> {
 		if (!this.ready || !this.port) {
-			return this.queueRequest(() => this.sendMessage(sessionId, text, agent))
+			return this.queueRequest(() => this.sendMessage(sessionId, text, agent, model))
 		}
 
-		const body: any = {
+		const body: PromptAsyncBody = {
 			parts: [{ type: "text", text }],
 		}
 		if (agent) {
 			body.agent = agent
+		}
+		if (model) {
+			body.model = model
 		}
 
 		const res = await fetch(`http://localhost:${this.port}/session/${sessionId}/prompt_async`, {
