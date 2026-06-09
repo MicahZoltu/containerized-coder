@@ -264,6 +264,7 @@ export interface OperationTypeConfig<T extends Operation = Operation> {
 // ============================================================================
 
 import type { Provider, Session, QuestionAnswer, TodoItem, PermissionRequest, PermissionReply } from "./backend"
+import type { SessionTokens } from "../opencodeBackend"
 
 export type ExtToWebviewMsg =
 	| { panelId: string; type: "init"; data: { todoSidebarVisible: boolean } }
@@ -285,6 +286,7 @@ export type ExtToWebviewMsg =
 	| { panelId: string; type: "setTodoSidebarVisible"; data: { visible: boolean } }
 	| { panelId: string; type: "questionRequestId"; data: { callID: string; requestId: string | null } }
 	| { panelId: string; type: "permissionRequest"; data: PermissionRequest }
+	| { panelId: string; type: "setSessionUsage"; data: { cost: number; tokens: SessionTokens } }
 
 export type WebviewToExtMsg =
 	| { panelId: string; type: "init"; data: {} }

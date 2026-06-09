@@ -18,6 +18,13 @@ import type {
 } from "./types/backend"
 import { partToOperation, updateOperationFromPart, createErrorOperation } from "./operationMapper"
 
+export interface SessionTokens {
+	input: number
+	output: number
+	reasoning: number
+	cache: { read: number; write: number }
+}
+
 interface Session {
 	id: string
 	title: string

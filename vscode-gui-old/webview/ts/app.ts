@@ -104,16 +104,18 @@ interface StepStartOperation extends OperationBase {
 	snapshot?: string
 }
 
+interface SessionTokens {
+	input: number
+	output: number
+	reasoning: number
+	cache: { read: number; write: number }
+}
+
 interface StepFinishOperation extends OperationBase {
 	type: "step-finish"
 	reason: string
 	cost?: number
-	tokens?: {
-		input: number
-		output: number
-		reasoning: number
-		cache: { read: number; write: number }
-	}
+	tokens?: SessionTokens
 	snapshot?: string
 }
 
@@ -192,6 +194,7 @@ interface ExtMessage {
 		| "setTodoSidebarVisible"
 		| "questionRequestId"
 		| "permissionRequest"
+		| "setSessionUsage"
 	data: any
 }
 
@@ -292,6 +295,7 @@ const todoToggleBtn = document.getElementById("todo-toggle-btn") as HTMLButtonEl
 const todoToggleFixed = document.getElementById("todo-toggle-fixed") as HTMLButtonElement
 const todoBadge = document.getElementById("todo-badge") as HTMLSpanElement
 const todoActiveCount = document.getElementById("todo-active-count") as HTMLSpanElement
+const sessionUsageLabel = document.getElementById("session-usage-label") as HTMLSpanElement
 
 // Create parent session banner
 const parentBanner = document.createElement("div")
@@ -1277,6 +1281,28 @@ function formatTime(timestamp: number): string {
 	})
 }
 
+function formatTokenCount(tokens: number): string {
+	if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
+	if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`
+	return tokens.toString()
+}
+
+function formatSessionUsage(cost: number, tokens: SessionTokens): string {
+	const totalTokens = tokens.input + tokens.output + tokens.reasoning + tokens.cache.read + tokens.cache.write
+	const parts: string[] = []
+	parts.push(`${formatTokenCount(totalTokens)} tokens`)
+	if (cost > 0) {
+		const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+		parts.push(money.format(cost))
+	}
+	return parts.join(" · ")
+}
+
+function updateSessionUsageDisplay(cost: number, tokens: SessionTokens): void {
+	if (!sessionUsageLabel) return
+	sessionUsageLabel.textContent = formatSessionUsage(cost, tokens)
+}
+
 // Submit prompt
 function submitPrompt(): void {
 	const text = input.value.trim()
@@ -1960,6 +1986,12 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 		case "permissionRequest": {
 			const req = msg.data as PermissionRequest
 			showPermissionPrompt(req)
+			break
+		}
+
+		case "setSessionUsage": {
+			const { cost, tokens } = msg.data as { cost: number; tokens: SessionTokens }
+			updateSessionUsageDisplay(cost, tokens)
 			break
 		}
 	}

@@ -1,5 +1,5 @@
 import * as vscode from "vscode"
-import { Operation, ExtToWebviewMsg, WebviewToExtMsg } from "./types/operations"
+import { Operation, ExtToWebviewMsg, WebviewToExtMsg, StepFinishOperation } from "./types/operations"
 import type { PermissionReply } from "./types/backend"
 import { OperationStore, InMemoryOperationStore } from "./operationStore"
 import { backend } from "./opencodeBackend"
@@ -310,6 +310,7 @@ export class AssistantPanel {
 				type: "setOperations",
 				data: { operations: [] },
 			})
+			this.computeAndSendUsage()
 
 			this.pendingOperations = []
 
@@ -413,6 +414,7 @@ export class AssistantPanel {
 			// Done loading - process any events that arrived during loading
 			this.isLoadingHistory = false
 			this.processPendingOperations()
+			this.computeAndSendUsage()
 
 			// Fetch pending permissions for this session AFTER setOperations
 			// so they don't get cleared when container is emptied
@@ -507,6 +509,7 @@ export class AssistantPanel {
 				type: "addOperation",
 				data: startOp,
 			})
+			this.computeAndSendUsage()
 
 			this.sendMessage({
 				panelId: this.panelId,
@@ -696,6 +699,7 @@ export class AssistantPanel {
 
 			// Add start marker
 			this.addOperation(createStartOperation(session.id))
+			this.computeAndSendUsage()
 		} catch (err) {
 			logError("Failed to initialize session:", err)
 			// Show error in UI
@@ -735,6 +739,10 @@ export class AssistantPanel {
 				this.updateOperation(op.id, { ...op })
 			} else {
 				this.addOperation(op)
+			}
+
+			if (op.type === "step-finish") {
+				this.computeAndSendUsage()
 			}
 		})
 
@@ -777,18 +785,14 @@ export class AssistantPanel {
 
 	private processPendingOperations(): void {
 		for (const op of this.pendingOperations) {
-			// Check if operation already exists (might have been loaded from history)
 			const existing = this.store.get(op.id)
 			if (existing) {
-				// Update with the latest data
 				this.updateOperation(op.id, { ...op })
 			} else {
-				// Add new operation
 				this.addOperation(op)
 			}
 		}
 
-		// Clear the buffer
 		this.pendingOperations = []
 	}
 
@@ -852,6 +856,39 @@ export class AssistantPanel {
 			panelId: this.panelId,
 			type: "setCancelButtonVisible",
 			data: { visible: isBusy ?? false },
+		})
+	}
+
+	private computeAndSendUsage(): void {
+		const lastStepFinishPerMessage = new Map<string, StepFinishOperation>()
+
+		for (const op of this.store.getAll()) {
+			if (op.type === "step-finish") {
+				lastStepFinishPerMessage.set(op.messageId, op)
+			}
+		}
+
+		let cost = 0
+		let lastMessageTokens = { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } }
+
+		if (lastStepFinishPerMessage.size > 0) {
+			for (const stepFinish of lastStepFinishPerMessage.values()) {
+				cost += stepFinish.cost
+			}
+
+			let lastEntry: StepFinishOperation | undefined
+			for (const stepFinish of lastStepFinishPerMessage.values()) {
+				lastEntry = stepFinish
+			}
+			if (lastEntry) {
+				lastMessageTokens = lastEntry.tokens
+			}
+		}
+
+		this.sendMessage({
+			panelId: this.panelId,
+			type: "setSessionUsage",
+			data: { cost, tokens: lastMessageTokens },
 		})
 	}
 
@@ -1150,6 +1187,9 @@ export class AssistantPanel {
 					<span>🤖</span>
 					<span id="current-model-label">Model</span>
 				</button>
+				<div id="session-usage">
+					<span id="session-usage-label">0 tokens</span>
+				</div>
 			</div>
 			<div id="bottom-right-buttons">
 				<button id="cancel-btn" style="display: none;">⏹ Cancel</button>
