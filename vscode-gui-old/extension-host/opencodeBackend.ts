@@ -825,7 +825,7 @@ export class OpencodeBackend {
 		}
 	}
 
-	async getSession(sessionID: string): Promise<Session & { parentID?: string }> {
+	async getSession(sessionID: string): Promise<Session> {
 		if (!this.ready || !this.port) {
 			return this.queueRequest(() => this.getSession(sessionID))
 		}
@@ -835,7 +835,7 @@ export class OpencodeBackend {
 			throw new Error(`Failed to get session: ${res.status}`)
 		}
 
-		return (await res.json()) as Session & { parentID?: string }
+		return (await res.json()) as Session
 	}
 
 	async getSessionChildren(sessionID: string): Promise<Session[]> {
@@ -889,6 +889,42 @@ export class OpencodeBackend {
 		if (!res.ok) {
 			throw new Error(`Failed to unarchive session: ${res.status}`)
 		}
+	}
+
+	async revertSession(sessionID: string, messageID: string): Promise<Session> {
+		if (!this.ready || !this.port) {
+			return this.queueRequest(() => this.revertSession(sessionID, messageID))
+		}
+
+		const res = await fetch(`http://localhost:${this.port}/session/${sessionID}/revert`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ messageID }),
+		})
+
+		if (!res.ok) {
+			throw new Error(`Failed to revert session: ${res.status}`)
+		}
+
+		return (await res.json()) as Session
+	}
+
+	async forkSession(sessionID: string, messageID: string): Promise<Session> {
+		if (!this.ready || !this.port) {
+			return this.queueRequest(() => this.forkSession(sessionID, messageID))
+		}
+
+		const res = await fetch(`http://localhost:${this.port}/session/${sessionID}/fork`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ messageID }),
+		})
+
+		if (!res.ok) {
+			throw new Error(`Failed to fork session: ${res.status}`)
+		}
+
+		return (await res.json()) as Session
 	}
 
 	async deleteSession(sessionID: string): Promise<void> {

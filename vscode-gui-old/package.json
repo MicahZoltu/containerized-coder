@@ -41,7 +41,7 @@
   "scripts": {
     "build": "tsc && cd webview/ts && tsc",
     "watch": "tsc --watch",
-    "test": "bun test output/**/*.test.js",
+    "test": "bun test ./**/*.test.ts",
     "package": "bun run build && bun run script/package.ts"
   },
   "dependencies": {

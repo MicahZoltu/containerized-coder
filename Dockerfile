@@ -65,7 +65,7 @@ RUN sed -i '/scrollAcceleration={scrollAcceleration()}/a\              focusable
 RUN sed -i 's/ghostty-web#main/ghostty-web#4af877d52b523754f113b87084b69835b752fb2c/g' /build/packages/app/package.json
 
 RUN bun install --ignore-scripts --frozen-lockfile
-RUN cd packages/opencode && bun run build -- --single
+RUN cd packages/opencode && bun run build -- --single --skip-install
 
 # Resolve symlinks in place for images folder
 # RUN find /build/sdks/vscode/images -type l -exec sh -c 'cp -L "$1" "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;

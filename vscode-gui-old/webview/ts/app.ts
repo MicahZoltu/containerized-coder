@@ -91,6 +91,7 @@ interface ErrorOperation extends OperationBase {
 
 interface UserMessageOperation extends OperationBase {
 	type: "user-message"
+	messageId: string
 	content: string
 	model?: { providerID: string; modelID: string }
 }
@@ -248,6 +249,8 @@ interface WebviewMessage {
 		| "getQuestionRequestId"
 		| "toggleTodoSidebar"
 		| "replyPermission"
+		| "undoToMessage"
+		| "forkFromMessage"
 	data: any
 }
 
@@ -1052,6 +1055,24 @@ function getCopyableContent(op: Operation): string | null {
 	}
 }
 
+function buildUserMessageActionButtons(messageId: string): string {
+	const safeId = escapeHtml(messageId)
+	return `<button class="op-undo-btn" title="Undo back to this message" data-message-id="${safeId}">⏪</button><button class="op-fork-btn" title="Fork session from this message" data-message-id="${safeId}">🍴</button>`
+}
+
+function wireUserMessageActionButton(
+	button: HTMLButtonElement | null,
+	actionType: "undoToMessage" | "forkFromMessage",
+	messageId: string,
+): void {
+	if (!button) return
+	button.addEventListener("click", (e) => {
+		e.stopPropagation()
+		if (!panelId) return
+		vscode.postMessage({ panelId, type: actionType, data: { messageID: messageId } })
+	})
+}
+
 // Create DOM element for an operation
 async function createOperationElement(op: Operation): Promise<HTMLElement> {
 	const el = document.createElement("div")
@@ -1092,12 +1113,15 @@ async function createOperationElement(op: Operation): Promise<HTMLElement> {
 		? `<button class="op-copy-btn" title="Copy raw text">📋</button>`
 		: ""
 
+	const userActionButtons =
+		op.type === "user-message" && op.messageId ? buildUserMessageActionButtons(op.messageId) : ""
+
 	el.innerHTML = `
 		<div class="op-header">
 			<span class="op-icon">${getIcon(op)}</span>
 			<span class="op-title">${escapeHtml(op.title)}</span>
 			${titlePreview}
-			<span class="op-meta">${modelBadge}${agentBadge}${statusBadge}${timeBadge}${copyButton}</span>
+			<span class="op-meta">${modelBadge}${agentBadge}${statusBadge}${timeBadge}${copyButton}${userActionButtons}</span>
 			<span class="op-toggle">▼</span>
 		</div>
 		 <div class="op-body">
@@ -1131,6 +1155,11 @@ async function createOperationElement(op: Operation): Promise<HTMLElement> {
 				}
 			})
 		}
+	}
+
+	if (op.type === "user-message" && op.messageId) {
+		wireUserMessageActionButton(el.querySelector(".op-undo-btn"), "undoToMessage", op.messageId)
+		wireUserMessageActionButton(el.querySelector(".op-fork-btn"), "forkFromMessage", op.messageId)
 	}
 
 	// Toggle expand/collapse

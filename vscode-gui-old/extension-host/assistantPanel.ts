@@ -275,6 +275,14 @@ export class AssistantPanel {
 					case "replyPermission":
 						await this.handleReplyPermission(message.data.requestID, message.data.reply, message.data.message)
 						break
+
+					case "undoToMessage":
+						await this.handleUndoToMessage(message.data.messageID)
+						break
+
+					case "forkFromMessage":
+						await this.handleForkFromMessage(message.data.messageID)
+						break
 				}
 			}),
 		)
@@ -385,6 +393,7 @@ export class AssistantPanel {
 							msg.info.model,
 							msg.info.agent,
 							msg.info.time.created,
+							msg.info.id,
 						)
 						userOp.expanded = false
 						operations.push(userOp)
@@ -640,6 +649,43 @@ export class AssistantPanel {
 		}
 	}
 
+	private async handleUndoToMessage(messageID: string): Promise<void> {
+		if (!this.sessionId) return
+
+		const choice = await vscode.window.showWarningMessage(
+			"Undo will discard all messages and changes after this point. Continue?",
+			{ modal: true },
+			"Undo",
+		)
+		if (choice !== "Undo") return
+
+		try {
+			// Cancel before revert. The server is local, so the cancel/revert pair is not expected to race in any meaningful way.
+			if (this.sessionStatus?.type === "busy" || this.sessionStatus?.type === "retry") {
+				await backend.cancelSession(this.sessionId)
+			}
+			await backend.revertSession(this.sessionId, messageID)
+			await this.handleSelectSession(this.sessionId)
+			await this.loadSessionsList()
+		} catch (err) {
+			logError("Failed to undo to message:", err)
+			vscode.window.showErrorMessage(`OpenCode: Failed to undo: ${err instanceof Error ? err.message : String(err)}`)
+		}
+	}
+
+	private async handleForkFromMessage(messageID: string): Promise<void> {
+		if (!this.sessionId) return
+
+		try {
+			const forkedSession = await backend.forkSession(this.sessionId, messageID)
+			await this.loadSessionsList()
+			await this.handleSelectSession(forkedSession.id)
+		} catch (err) {
+			logError("Failed to fork session:", err)
+			vscode.window.showErrorMessage(`OpenCode: Failed to fork: ${err instanceof Error ? err.message : String(err)}`)
+		}
+	}
+
 	private async handleUnarchiveSession(sessionId: string): Promise<void> {
 		try {
 			await backend.unarchiveSession(sessionId)
@@ -724,24 +770,8 @@ export class AssistantPanel {
 			this.computeAndSendUsage()
 		} catch (err) {
 			logError("Failed to initialize session:", err)
-			// Show error in UI
-			this.sendMessage({
-				panelId: this.panelId,
-				type: "addOperation",
-				data: {
-					id: `error-${Date.now()}`,
-					type: "error",
-					title: "Error",
-					error: err instanceof Error ? err.message : "Failed to initialize",
-					errorType: "UnknownError",
-					timestamp: Date.now(),
-					expanded: true,
-					status: "error",
-					sessionId: this.sessionId || "unknown",
-					messageId: this.sessionId || "unknown",
-					partId: `error-${Date.now()}`,
-				} as Operation,
-			})
+			const errorMessage = err instanceof Error ? err.message : "Failed to initialize"
+			this.addOperation(createErrorOperation({ name: "UnknownError", data: { message: errorMessage } }, this.sessionId || "unknown"))
 		}
 	}
 
@@ -952,23 +982,7 @@ export class AssistantPanel {
 	private async handlePrompt(prompt: string, agent?: string): Promise<void> {
 		if (!this.sessionId) {
 			logError("No session available")
-			this.sendMessage({
-				panelId: this.panelId,
-				type: "addOperation",
-				data: {
-					id: `error-${Date.now()}`,
-					type: "error",
-					title: "Error",
-					error: "Session not initialized",
-					errorType: "UnknownError",
-					timestamp: Date.now(),
-					expanded: true,
-					status: "error",
-					sessionId: "unknown",
-					messageId: "unknown",
-					partId: `error-${Date.now()}`,
-				} as Operation,
-			})
+			this.addOperation(createErrorOperation({ name: "UnknownError", data: { message: "Session not initialized" } }, "unknown"))
 			return
 		}
 
@@ -983,23 +997,8 @@ export class AssistantPanel {
 			await backend.sendMessage(this.sessionId, prompt, agent, model ?? undefined)
 		} catch (err) {
 			logError("Failed to send prompt:", err)
-			this.sendMessage({
-				panelId: this.panelId,
-				type: "addOperation",
-				data: {
-					id: `error-${Date.now()}`,
-					type: "error",
-					title: "Error",
-					error: err instanceof Error ? err.message : "Failed to send message",
-					errorType: "UnknownError",
-					timestamp: Date.now(),
-					expanded: true,
-					status: "error",
-					sessionId: this.sessionId,
-					messageId: this.sessionId,
-					partId: `error-${Date.now()}`,
-				} as Operation,
-			})
+			const errorMessage = err instanceof Error ? err.message : "Failed to send message"
+			this.addOperation(createErrorOperation({ name: "UnknownError", data: { message: errorMessage } }, this.sessionId))
 		}
 	}
 

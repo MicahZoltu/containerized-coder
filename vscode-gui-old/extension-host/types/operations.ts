@@ -317,3 +317,5 @@ export type WebviewToExtMsg =
 	| { panelId: string; type: "getQuestionRequestId"; data: { callID: string } }
 	| { panelId: string; type: "toggleTodoSidebar"; data: { visible: boolean } }
 	| { panelId: string; type: "replyPermission"; data: { requestID: string; reply: PermissionReply; message?: string } }
+	| { panelId: string; type: "undoToMessage"; data: { messageID: string } }
+	| { panelId: string; type: "forkFromMessage"; data: { messageID: string } }

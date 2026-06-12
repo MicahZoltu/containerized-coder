@@ -447,7 +447,9 @@ body {
 	gap: 8px;
 }
 
-.op-copy-btn {
+.op-copy-btn,
+.op-undo-btn,
+.op-fork-btn {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -465,7 +467,9 @@ body {
 	transition: opacity 0.2s, background 0.2s;
 }
 
-.op-copy-btn:hover {
+.op-copy-btn:hover,
+.op-undo-btn:hover,
+.op-fork-btn:hover {
 	opacity: 1;
 	background: var(--hover);
 }
