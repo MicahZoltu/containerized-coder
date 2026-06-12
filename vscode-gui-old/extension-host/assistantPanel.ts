@@ -53,6 +53,7 @@ export class AssistantPanel {
 	private disposables: vscode.Disposable[] = []
 	private sessionId: string | null = null
 	private sessionStatus: import("./types/backend").SessionStatus | null = null
+	private sessionModels: Map<string, { providerID: string; modelID: string }> = new Map()
 	private isReady = false
 	private isDisposed = false
 	private unsubscribeFromBackend: (() => void) | null = null
@@ -328,11 +329,18 @@ export class AssistantPanel {
 			const messages = await backend.loadSessionHistory(sessionId)
 
 			let lastAgent: string | undefined
+			let lastModel: { providerID: string; modelID: string } | undefined
 			for (let i = messages.length - 1; i >= 0; i--) {
-				if (messages[i].info.role === "user") {
-					lastAgent = messages[i].info.agent
+				const info = messages[i].info
+				if (info.role === "user") {
+					lastAgent = info.agent
+					lastModel = info.model
 					break
 				}
+			}
+
+			if (lastModel) {
+				this.sessionModels.set(sessionId, lastModel)
 			}
 
 			this.sendMessage({
@@ -497,10 +505,17 @@ export class AssistantPanel {
 			})
 
 			const session = await backend.createSession()
+			const previousSessionId = this.sessionId
 			this.sessionId = session.id
 
 			const agents = await backend.getAgents()
 			const defaultAgent = agents[0]?.name
+
+			const previousSessionModel = previousSessionId ? this.sessionModels.get(previousSessionId) : undefined
+			const seedModel = previousSessionModel ?? (await this.getCurrentModel())
+			if (seedModel) {
+				this.sessionModels.set(session.id, seedModel)
+			}
 
 			const startOp = createStartOperation(session.id)
 			this.store.add(startOp)
@@ -673,6 +688,13 @@ export class AssistantPanel {
 			// Get default agent for new session
 			const agents = await backend.getAgents()
 			const defaultAgent = agents[0]?.name
+
+			// Seed the per-session model from the opencode server's global config
+			// so the very first session has a model before any prompt is sent.
+			const initialModel = await this.getCurrentModel()
+			if (initialModel) {
+				this.sessionModels.set(session.id, initialModel)
+			}
 
 			// Save session
 			this.saveSessionToStorage()
@@ -950,12 +972,15 @@ export class AssistantPanel {
 			return
 		}
 
+		// Use the per-session model. Fall back to the opencode server's global
+		// config only if the per-session map has no entry (e.g. brand new panel).
+		const model = this.sessionModels.get(this.sessionId) ?? (await this.getCurrentModel())
+
 		// Add user message operation
-		const model = await this.getCurrentModel()
-		this.addOperation(createUserMessageOperation(this.sessionId, prompt, model || undefined, agent))
+		this.addOperation(createUserMessageOperation(this.sessionId, prompt, model ?? undefined, agent))
 
 		try {
-			await backend.sendMessage(this.sessionId, prompt, agent, model || undefined)
+			await backend.sendMessage(this.sessionId, prompt, agent, model ?? undefined)
 		} catch (err) {
 			logError("Failed to send prompt:", err)
 			this.sendMessage({
@@ -1047,8 +1072,10 @@ export class AssistantPanel {
 	}
 
 	private async sendCurrentModelInfo(): Promise<void> {
+		if (!this.sessionId) return
+
 		try {
-			const model = await this.getCurrentModel()
+			const model = this.sessionModels.get(this.sessionId) ?? (await this.getCurrentModel())
 			if (!model) return
 
 			const providers = await backend.getProviders()
@@ -1083,9 +1110,10 @@ export class AssistantPanel {
 	}
 
 	private async handleModelSelection(providerID: string, modelID: string): Promise<void> {
+		if (!this.sessionId) return
+
 		try {
-			const modelRef = `${providerID}/${modelID}`
-			await backend.updateConfig({ model: modelRef })
+			this.sessionModels.set(this.sessionId, { providerID, modelID })
 
 			const providers = await backend.getProviders()
 			const provider = providers.find((p) => p.id === providerID)
