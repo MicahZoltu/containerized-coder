@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.4
+
 ###
 # Stage 1: Extension Builder
 ###
@@ -5,23 +7,25 @@ FROM oven/bun:1.3.11@sha256:38919894db4e117a37f74e3dca503e84f24d97f19cabc5f499a2
 
 WORKDIR /build
 
-RUN <<EOF
+RUN <<-EOF
 	# Enable Debian snapshot repository for reproducible builds
 	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
 	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
+	echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
 EOF
 
-RUN <<EOF
+RUN --mount=type=cache,target=/var/cache/apt/archives,sharing=locked <<-EOF
 	# install dependencies
 	set -e
-	apt-get update -o Acquire::Check-Valid-Until=false
+	rm -f /var/cache/apt/archives/lock
+	apt-get update
 	apt-get install -y --no-install-recommends zip=3.0-15
 	rm -rf /var/lib/apt/lists/*
 EOF
 
 # Cache dependecy layer
 COPY vscode-gui-old/package.json vscode-gui-old/package-lock.json ./
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
 # Copy remaining extension files
 COPY vscode-gui-old/tsconfig.json ./
@@ -39,17 +43,19 @@ FROM oven/bun:1.3.11@sha256:38919894db4e117a37f74e3dca503e84f24d97f19cabc5f499a2
 
 WORKDIR /build
 
-RUN <<EOF
+RUN <<-EOF
 	# Enable Debian snapshot repository for reproducible builds
 	set -e
 	sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
 	sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
+	echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
 EOF
 
-RUN <<EOF
+RUN --mount=type=cache,target=/var/cache/apt/archives,sharing=locked <<-EOF
 	# install dependencies
 	set -e
-	apt-get update -o Acquire::Check-Valid-Until=false
+	rm -f /var/cache/apt/archives/lock
+	apt-get update
 	apt-get install -y --no-install-recommends git=1:2.47.3-0+deb13u1 ca-certificates=20250419
 	rm -rf /var/lib/apt/lists/*
 EOF
@@ -64,13 +70,13 @@ RUN sed -i '/scrollAcceleration={scrollAcceleration()}/a\              focusable
 # Fix broken build reproducibility
 RUN sed -i 's/ghostty-web#main/ghostty-web#4af877d52b523754f113b87084b69835b752fb2c/g' /build/packages/app/package.json
 
-RUN bun install --ignore-scripts --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --ignore-scripts --frozen-lockfile
 RUN cd packages/opencode && bun run build -- --single --skip-install
 
 # Resolve symlinks in place for images folder
 # RUN find /build/sdks/vscode/images -type l -exec sh -c 'cp -L "$1" "$1.tmp" && mv "$1.tmp" "$1"' _ {} \;
 
-RUN <<EOF
+RUN --mount=type=cache,target=/root/.bun/install/cache <<-EOF
 	# Use the publish script to package only, with bun only (no NPM)
 	set -e
 	cd sdks/vscode
@@ -88,18 +94,19 @@ EOF
 ###
 FROM ghcr.io/coder/code-server:4.121.0-trixie@sha256:607c3e129123f7e30cd5dedde2cfd3c5a0d10d81fe3bda0122b60eebf0bf7c75 AS base
 
-RUN <<EOF
+RUN <<-EOF
 	# Enable Debian snapshot repository for reproducible builds
 	set -e
 	sudo sed -i 's|^URIs:|# URIs:|' /etc/apt/sources.list.d/debian.sources
 	sudo sed -i 's|^# http://snapshot|URIs: http://snapshot|' /etc/apt/sources.list.d/debian.sources
+	echo 'Acquire::Check-Valid-Until "false";' | sudo tee /etc/apt/apt.conf.d/99no-check-valid-until > /dev/null
 EOF
 
 # Copy OpenCode binary to /usr/local/bin (on PATH, executable by all users)
 COPY --from=opencode-builder /build/packages/opencode/dist/opencode-linux-x64/bin/opencode /usr/local/bin/opencode
 RUN sudo chmod +x /usr/local/bin/opencode
 
-RUN <<EOF
+RUN <<-EOF
 	# Download EditorConfig extension
 	set -e
 	curl -fsSL -o /tmp/editorconfig.vsix "https://open-vsx.org/api/EditorConfig/EditorConfig/0.17.4/file/EditorConfig.EditorConfig-0.17.4.vsix"
@@ -112,7 +119,7 @@ COPY --from=opencode-builder /build/sdks/vscode/dist/opencode.vsix /tmp/opencode
 RUN /usr/bin/code-server --install-extension /tmp/opencode.vsix --install-extension /tmp/opencode-gui-0.1.0.vsix --install-extension /tmp/editorconfig.vsix
 
 # Setup initial configuration of code-server
-COPY <<EOF /home/coder/.local/share/code-server/User/settings.json
+COPY <<-EOF /home/coder/.local/share/code-server/User/settings.json
 {
 	"chat.disableAIFeatures": true,
 	"workbench.colorTheme": "Default Dark+",
@@ -143,15 +150,16 @@ ENTRYPOINT ["/usr/bin/code-server", "--disable-telemetry", "--disable-workspace-
 ###
 FROM base AS with-bun
 
-RUN <<EOF
+RUN --mount=type=cache,target=/var/cache/apt/archives,sharing=locked <<-EOF
 	# install dependencies
 	set -e
-	sudo apt-get update -o Acquire::Check-Valid-Until=false
+	sudo rm -f /var/cache/apt/archives/lock
+	sudo apt-get update
 	sudo apt-get install -y --no-install-recommends unzip=6.0-29
 	sudo rm -rf /var/lib/apt/lists/*
 EOF
 
-RUN <<EOF
+RUN <<-EOF
 	# install bun
 	set -e
 	curl -fsSL -o /tmp/bun.zip "https://github.com/oven-sh/bun/releases/download/bun-v1.3.9/bun-linux-x64.zip"
