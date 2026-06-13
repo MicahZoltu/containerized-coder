@@ -336,6 +336,12 @@ export interface Session {
 		archived?: number
 	}
 	status?: SessionStatus
+	revert?: {
+		messageID: string
+		partID?: string
+		snapshot?: string
+		diff?: string
+	}
 }
 
 // Provider types for model selection

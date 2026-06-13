@@ -34,6 +34,12 @@ interface Session {
 		updated: number
 		archived?: number
 	}
+	revert?: {
+		messageID: string
+		partID?: string
+		snapshot?: string
+		diff?: string
+	}
 }
 
 interface PromptAsyncBody {
@@ -59,6 +65,7 @@ export class OpencodeBackend {
 
 	private onSessionStatusCallbacks: Map<string, (status: SessionStatus) => void> = new Map()
 	private onGlobalSessionStatusCallbacks: Set<(sessionId: string, status: SessionStatus) => void> = new Set()
+	private onMessageInfoCallbacks: Map<string, (info: MessageInfo) => void> = new Map()
 	private onTodoCallbacks: Map<string, (todos: TodoItem[]) => void> = new Map()
 
 	constructor(private readonly opencodePath: string = "opencode") {}
@@ -311,6 +318,10 @@ export class OpencodeBackend {
 				if (info?.id && info?.role) {
 					this.messageRoles.set(info.id, info.role)
 					this.messageInfo.set(info.id, info)
+					const callback = this.onMessageInfoCallbacks.get(info.sessionID)
+					if (callback) {
+						callback(info)
+					}
 				}
 				break
 			}
@@ -539,6 +550,13 @@ export class OpencodeBackend {
 		}
 	}
 
+	onMessageInfo(sessionId: string, callback: (info: MessageInfo) => void): () => void {
+		this.onMessageInfoCallbacks.set(sessionId, callback)
+		return () => {
+			this.onMessageInfoCallbacks.delete(sessionId)
+		}
+	}
+
 	async loadSessionHistory(sessionId: string): Promise<{ info: MessageInfo; parts: Part[] }[]> {
 		if (!this.ready || !this.port) {
 			return this.queueRequest(() => this.loadSessionHistory(sessionId))
@@ -707,6 +725,7 @@ export class OpencodeBackend {
 		this.onOperationCallbacks.clear()
 		this.onSessionStatusCallbacks.clear()
 		this.onGlobalSessionStatusCallbacks.clear()
+		this.onMessageInfoCallbacks.clear()
 		this.messageRoles.clear()
 		this.messageInfo.clear()
 	}
@@ -904,6 +923,23 @@ export class OpencodeBackend {
 
 		if (!res.ok) {
 			throw new Error(`Failed to revert session: ${res.status}`)
+		}
+
+		return (await res.json()) as Session
+	}
+
+	async unrevertSession(sessionID: string): Promise<Session> {
+		if (!this.ready || !this.port) {
+			return this.queueRequest(() => this.unrevertSession(sessionID))
+		}
+
+		const res = await fetch(`http://localhost:${this.port}/session/${sessionID}/unrevert`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+		})
+
+		if (!res.ok) {
+			throw new Error(`Failed to unrevert session: ${res.status}`)
 		}
 
 		return (await res.json()) as Session

@@ -196,6 +196,7 @@ interface ExtMessage {
 		| "questionRequestId"
 		| "permissionRequest"
 		| "setSessionUsage"
+		| "setSessionRevert"
 	data: any
 }
 
@@ -251,6 +252,7 @@ interface WebviewMessage {
 		| "replyPermission"
 		| "undoToMessage"
 		| "forkFromMessage"
+		| "unrevert"
 	data: any
 }
 
@@ -313,6 +315,28 @@ parentBanner.innerHTML = `
 topBar.insertBefore(parentBanner, topBar.firstChild)
 
 const backToParentBtn = document.getElementById("back-to-parent-btn") as HTMLButtonElement
+
+// Create revert dock (shown when a session has a staged revert awaiting commit)
+const revertDock = document.createElement("div")
+revertDock.id = "revert-dock"
+revertDock.innerHTML = `
+	<span id="revert-dock-text"></span>
+	<button id="revert-dock-redo-btn" class="revert-dock-btn">Redo</button>
+`
+const inputArea = document.getElementById("input-area")!
+container.parentNode?.insertBefore(revertDock, inputArea)
+
+const revertDockText = document.getElementById("revert-dock-text") as HTMLSpanElement
+const revertDockRedoBtn = document.getElementById("revert-dock-redo-btn") as HTMLButtonElement
+
+revertDockRedoBtn.addEventListener("click", () => {
+	if (!panelId) return
+	vscode.postMessage({
+		panelId,
+		type: "unrevert",
+		data: {},
+	})
+})
 
 // Escape HTML to prevent XSS
 function escapeHtml(str: string | undefined): string {
@@ -1291,6 +1315,21 @@ async function updateOperationElement(el: HTMLElement, op: Operation, updates: P
 			titleEl.textContent = escapeHtml(updates.title)
 		}
 	}
+
+	if (op.type === "user-message") {
+		const metaEl = el.querySelector(".op-meta")
+		if (metaEl) {
+			metaEl.querySelectorAll(".op-undo-btn, .op-fork-btn").forEach((btn) => btn.remove())
+			if (op.messageId) {
+				const newButtonsHtml = buildUserMessageActionButtons(op.messageId)
+				metaEl.insertAdjacentHTML("beforeend", newButtonsHtml)
+				const undoBtn = metaEl.querySelector(".op-undo-btn") as HTMLButtonElement | null
+				const forkBtn = metaEl.querySelector(".op-fork-btn") as HTMLButtonElement | null
+				wireUserMessageActionButton(undoBtn, "undoToMessage", op.messageId)
+				wireUserMessageActionButton(forkBtn, "forkFromMessage", op.messageId)
+			}
+		}
+	}
 }
 
 // Scroll to bottom if following
@@ -2021,6 +2060,21 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 		case "setSessionUsage": {
 			const { cost, tokens } = msg.data as { cost: number; tokens: SessionTokens }
 			updateSessionUsageDisplay(cost, tokens)
+			break
+		}
+
+		case "setSessionRevert": {
+			const { revert, revertedCount } = msg.data as {
+				revert: { messageID: string; partID?: string; snapshot?: string; diff?: string } | null
+				revertedCount: number
+			}
+			if (revert) {
+				const noun = revertedCount === 1 ? "message" : "messages"
+				revertDockText.textContent = `${revertedCount} ${noun} reverted. Send a new prompt to commit, or restore below.`
+				revertDock.classList.add("visible")
+			} else {
+				revertDock.classList.remove("visible")
+			}
 			break
 		}
 	}

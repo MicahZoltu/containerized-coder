@@ -267,55 +267,53 @@ import type { Provider, Session, QuestionAnswer, TodoItem, PermissionRequest, Pe
 import type { SessionTokens } from "../opencodeBackend"
 
 export type ExtToWebviewMsg =
-	| { panelId: string; type: "init"; data: { todoSidebarVisible: boolean } }
-	| { panelId: string; type: "addOperation"; data: Operation }
-	| { panelId: string; type: "updateOperation"; data: { id: string; updates: Partial<Operation> } }
-	| { panelId: string; type: "removeOperation"; data: { id: string } }
-	| { panelId: string; type: "setTheme"; data: { theme: string } }
-	| { panelId: string; type: "setAvailableModels"; data: { providers: Provider[] } }
-	| { panelId: string; type: "setSessionModel"; data: { providerID: string; modelID: string; modelName: string } }
-	| { panelId: string; type: "promptApiKey"; data: { providerID: string; providerName: string; error?: string } }
-	| { panelId: string; type: "providerConnectionError"; data: { providerID: string; error: string } }
-	| { panelId: string; type: "setCancelButtonVisible"; data: { visible: boolean } }
-	| { panelId: string; type: "setSessions"; data: { sessions: Session[] } }
-	| { panelId: string; type: "updateSessionStatus"; data: { sessionId: string; status: Session["status"] } }
-	| { panelId: string; type: "setCurrentSession"; data: { sessionId: string; title?: string; agent?: string } }
-	| { panelId: string; type: "setOperations"; data: { operations: Operation[] } }
-	| { panelId: string; type: "setParentSession"; data: { parentId: string | null; parentTitle?: string } }
-	| { panelId: string; type: "setTodos"; data: { todos: TodoItem[] } }
-	| { panelId: string; type: "setTodoSidebarVisible"; data: { visible: boolean } }
-	| { panelId: string; type: "questionRequestId"; data: { callID: string; requestId: string | null } }
-	| { panelId: string; type: "permissionRequest"; data: PermissionRequest }
-	| { panelId: string; type: "setSessionUsage"; data: { cost: number; tokens: SessionTokens } }
+	| { panelId: string, type: "init", data: { todoSidebarVisible: boolean } }
+	| { panelId: string, type: "addOperation", data: Operation }
+	| { panelId: string, type: "updateOperation", data: { id: string, updates: Partial<Operation> } }
+	| { panelId: string, type: "removeOperation", data: { id: string } }
+	| { panelId: string, type: "setTheme", data: { theme: string } }
+	| { panelId: string, type: "setAvailableModels", data: { providers: Provider[] } }
+	| { panelId: string, type: "setSessionModel", data: { providerID: string, modelID: string, modelName: string } }
+	| { panelId: string, type: "promptApiKey", data: { providerID: string, providerName: string, error?: string } }
+	| { panelId: string, type: "providerConnectionError", data: { providerID: string, error: string } }
+	| { panelId: string, type: "setCancelButtonVisible", data: { visible: boolean } }
+	| { panelId: string, type: "setSessions", data: { sessions: Session[] } }
+	| { panelId: string, type: "updateSessionStatus", data: { sessionId: string, status: Session["status"] } }
+	| { panelId: string, type: "setCurrentSession", data: { sessionId: string, title?: string, agent?: string } }
+	| { panelId: string, type: "setOperations", data: { operations: Operation[] } }
+	| { panelId: string, type: "setParentSession", data: { parentId: string | null, parentTitle?: string } }
+	| { panelId: string, type: "setTodos", data: { todos: TodoItem[] } }
+	| { panelId: string, type: "setTodoSidebarVisible", data: { visible: boolean } }
+	| { panelId: string, type: "questionRequestId", data: { callID: string, requestId: string | null } }
+	| { panelId: string, type: "permissionRequest", data: PermissionRequest }
+	| { panelId: string, type: "setSessionUsage", data: { cost: number, tokens: SessionTokens } }
+	| { panelId: string, type: "setSessionRevert", data: { revert: { messageID: string, partID?: string, snapshot?: string, diff?: string } | null, revertedCount: number } }
 
 export type WebviewToExtMsg =
-	| { panelId: string; type: "init"; data: {} }
-	| { panelId: string; type: "submitPrompt"; data: { prompt: string; agent?: string } }
-	| { panelId: string; type: "operationAction"; data: { operationId: string; actionId: string; filePath?: string } }
-	| { panelId: string; type: "toggleCollapse"; data: { operationId: string; expanded: boolean } }
-	| { panelId: string; type: "openModelSelector"; data: {} }
-	| { panelId: string; type: "selectModel"; data: { providerID: string; modelID: string } }
-	| { panelId: string; type: "connectProvider"; data: { providerID: string; apiKey: string } }
-	| { panelId: string; type: "cancelConnectProvider"; data: {} }
-	| { panelId: string; type: "refreshModels"; data: {} }
-	| { panelId: string; type: "cancelSession"; data: {} }
-	| { panelId: string; type: "selectSession"; data: { sessionId: string } }
-	| { panelId: string; type: "createSession"; data: {} }
-	| { panelId: string; type: "refreshSessions"; data: {} }
-	| {
-			panelId: string
-			type: "switchToSession"
-			data: { sessionId: string; parentSessionId?: string; parentSessionTitle?: string }
-		}
-	| { panelId: string; type: "archiveSession"; data: { sessionId: string } }
-	| { panelId: string; type: "unarchiveSession"; data: { sessionId: string } }
-	| { panelId: string; type: "deleteSession"; data: { sessionId: string } }
-	| { panelId: string; type: "renameSession"; data: { sessionId: string; title: string } }
-	| { panelId: string; type: "requestRenameSession"; data: { sessionId: string; currentTitle: string } }
-	| { panelId: string; type: "answerQuestion"; data: { requestId: string; answers: QuestionAnswer[] } }
-	| { panelId: string; type: "rejectQuestion"; data: { requestId: string } }
-	| { panelId: string; type: "getQuestionRequestId"; data: { callID: string } }
-	| { panelId: string; type: "toggleTodoSidebar"; data: { visible: boolean } }
-	| { panelId: string; type: "replyPermission"; data: { requestID: string; reply: PermissionReply; message?: string } }
-	| { panelId: string; type: "undoToMessage"; data: { messageID: string } }
-	| { panelId: string; type: "forkFromMessage"; data: { messageID: string } }
+	| { panelId: string, type: "init", data: {} }
+	| { panelId: string, type: "submitPrompt", data: { prompt: string, agent?: string } }
+	| { panelId: string, type: "operationAction", data: { operationId: string, actionId: string, filePath?: string } }
+	| { panelId: string, type: "toggleCollapse", data: { operationId: string, expanded: boolean } }
+	| { panelId: string, type: "openModelSelector", data: {} }
+	| { panelId: string, type: "selectModel", data: { providerID: string, modelID: string } }
+	| { panelId: string, type: "connectProvider", data: { providerID: string, apiKey: string } }
+	| { panelId: string, type: "cancelConnectProvider", data: {} }
+	| { panelId: string, type: "refreshModels", data: {} }
+	| { panelId: string, type: "cancelSession", data: {} }
+	| { panelId: string, type: "selectSession", data: { sessionId: string } }
+	| { panelId: string, type: "createSession", data: {} }
+	| { panelId: string, type: "refreshSessions", data: {} }
+	| { panelId: string, type: "switchToSession", data: { sessionId: string, parentSessionId?: string, parentSessionTitle?: string } }
+	| { panelId: string, type: "archiveSession", data: { sessionId: string } }
+	| { panelId: string, type: "unarchiveSession", data: { sessionId: string } }
+	| { panelId: string, type: "deleteSession", data: { sessionId: string } }
+	| { panelId: string, type: "renameSession", data: { sessionId: string, title: string } }
+	| { panelId: string, type: "requestRenameSession", data: { sessionId: string, currentTitle: string } }
+	| { panelId: string, type: "answerQuestion", data: { requestId: string, answers: QuestionAnswer[] } }
+	| { panelId: string, type: "rejectQuestion", data: { requestId: string } }
+	| { panelId: string, type: "getQuestionRequestId", data: { callID: string } }
+	| { panelId: string, type: "toggleTodoSidebar", data: { visible: boolean } }
+	| { panelId: string, type: "replyPermission", data: { requestID: string, reply: PermissionReply, message?: string } }
+	| { panelId: string, type: "undoToMessage", data: { messageID: string } }
+	| { panelId: string, type: "forkFromMessage", data: { messageID: string } }
+	| { panelId: string, type: "unrevert", data: {} }

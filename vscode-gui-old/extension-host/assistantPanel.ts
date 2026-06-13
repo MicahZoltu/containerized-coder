@@ -1,11 +1,12 @@
 import * as vscode from "vscode"
 import { Operation, ExtToWebviewMsg, WebviewToExtMsg, StepFinishOperation } from "./types/operations"
-import type { PermissionReply } from "./types/backend"
+import type { PermissionReply, Session } from "./types/backend"
 import { OperationStore, InMemoryOperationStore } from "./operationStore"
 import { backend } from "./opencodeBackend"
 import { log, logError } from "./logger"
 import { createStartOperation, createUserMessageOperation, partToOperation, createErrorOperation } from "./operationMapper"
 import { DiffContentProvider } from "./diffProvider"
+import { PendingUserMessageQueue } from "./pendingUserMessage"
 
 let panelCounter = 0
 
@@ -54,6 +55,7 @@ export class AssistantPanel {
 	private sessionId: string | null = null
 	private sessionStatus: import("./types/backend").SessionStatus | null = null
 	private sessionModels: Map<string, { providerID: string; modelID: string }> = new Map()
+	private sessionReverts: Map<string, Session["revert"]> = new Map()
 	private isReady = false
 	private isDisposed = false
 	private unsubscribeFromBackend: (() => void) | null = null
@@ -61,6 +63,8 @@ export class AssistantPanel {
 	private unsubscribeFromStatus: (() => void) | null = null
 	private unsubscribeFromTodos: (() => void) | null = null
 	private unsubscribeFromPermissions: (() => void) | null = null
+	private unsubscribeFromMessageInfo: (() => void) | null = null
+	private pendingUserMessages: PendingUserMessageQueue = new PendingUserMessageQueue()
 	private todoSidebarVisible: boolean
 
 	private cleanupSubscriptions(): void {
@@ -80,6 +84,31 @@ export class AssistantPanel {
 			this.unsubscribeFromPermissions()
 			this.unsubscribeFromPermissions = null
 		}
+		if (this.unsubscribeFromMessageInfo) {
+			this.unsubscribeFromMessageInfo()
+			this.unsubscribeFromMessageInfo = null
+		}
+		this.pendingUserMessages.clear()
+	}
+
+	private sendSessionRevert(revert: Session["revert"] | undefined, revertedCount: number): void {
+		this.sendMessage({
+			panelId: this.panelId,
+			type: "setSessionRevert",
+			data: { revert: revert ?? null, revertedCount },
+		})
+	}
+
+	private countRevertedMessages(
+		messages: { info: { id: string } }[],
+		revert: Session["revert"] | undefined,
+	): number {
+		if (!revert) return 0
+		let count = 0
+		for (const msg of messages) {
+			if (msg.info.id >= revert.messageID) count++
+		}
+		return count
 	}
 
 	private messageQueue: ExtToWebviewMsg[] = []
@@ -283,6 +312,10 @@ export class AssistantPanel {
 					case "forkFromMessage":
 						await this.handleForkFromMessage(message.data.messageID)
 						break
+
+					case "unrevert":
+						await this.handleUnrevertFromMessage()
+						break
 				}
 			}),
 		)
@@ -333,6 +366,7 @@ export class AssistantPanel {
 			this.updateCancelButtonVisibility()
 
 			this.sessionId = sessionId
+			this.sessionReverts.set(sessionId, sessionInfo.revert)
 
 			const messages = await backend.loadSessionHistory(sessionId)
 
@@ -378,9 +412,11 @@ export class AssistantPanel {
 				})
 			})
 
-			// Convert messages to operations
+			// Convert messages to operations, hiding any messages that are part of a staged revert
+			const activeRevert = this.sessionReverts.get(sessionId)
+			const visibleMessages = activeRevert ? messages.filter((m) => m.info.id < activeRevert.messageID) : messages
 			const operations: Operation[] = []
-			for (const msg of messages) {
+			for (const msg of visibleMessages) {
 				// Check if this is a user message
 				if (msg.info.role === "user") {
 					// Extract text content from text parts
@@ -427,6 +463,8 @@ export class AssistantPanel {
 				type: "setOperations",
 				data: { operations },
 			})
+
+			this.sendSessionRevert(activeRevert, this.countRevertedMessages(messages, activeRevert))
 
 			// Done loading - process any events that arrived during loading
 			this.isLoadingHistory = false
@@ -664,13 +702,115 @@ export class AssistantPanel {
 			if (this.sessionStatus?.type === "busy" || this.sessionStatus?.type === "retry") {
 				await backend.cancelSession(this.sessionId)
 			}
-			await backend.revertSession(this.sessionId, messageID)
-			await this.handleSelectSession(this.sessionId)
+			const updated = await backend.revertSession(this.sessionId, messageID)
+			this.sessionReverts.set(this.sessionId, updated.revert)
+			await this.refreshSessionAfterRevertChange()
 			await this.loadSessionsList()
 		} catch (err) {
 			logError("Failed to undo to message:", err)
 			vscode.window.showErrorMessage(`OpenCode: Failed to undo: ${err instanceof Error ? err.message : String(err)}`)
 		}
+	}
+
+	private async handleUnrevertFromMessage(): Promise<void> {
+		if (!this.sessionId) return
+
+		try {
+			await backend.unrevertSession(this.sessionId)
+			this.sessionReverts.set(this.sessionId, undefined)
+			await this.refreshSessionAfterRevertChange()
+		} catch (err) {
+			logError("Failed to unrevert session:", err)
+			vscode.window.showErrorMessage(
+				`OpenCode: Failed to redo: ${err instanceof Error ? err.message : String(err)}`,
+			)
+		}
+	}
+
+	private async refreshSessionAfterRevertChange(): Promise<void> {
+		if (!this.sessionId) return
+		const sessionId = this.sessionId
+
+		const [sessionInfo, messages] = await Promise.all([
+			backend.getSession(sessionId),
+			backend.loadSessionHistory(sessionId),
+		])
+
+		this.cleanupSubscriptions()
+		this.store.clear()
+		this.sendMessage({
+			panelId: this.panelId,
+			type: "setOperations",
+			data: { operations: [] },
+		})
+		this.computeAndSendUsage()
+		this.pendingOperations = []
+		this.isLoadingHistory = true
+		this.setupSession(sessionId)
+
+		const activeRevert = this.sessionReverts.get(sessionId)
+		const visibleMessages = activeRevert ? messages.filter((m) => m.info.id < activeRevert.messageID) : messages
+
+		let lastAgent: string | undefined
+		for (let i = visibleMessages.length - 1; i >= 0; i--) {
+			const info = visibleMessages[i].info
+			if (info.role === "user") {
+				lastAgent = info.agent
+				break
+			}
+		}
+
+		const operations: Operation[] = []
+		for (const msg of visibleMessages) {
+			if (msg.info.role === "user") {
+				const textParts = msg.parts.filter((p) => p.type === "text") as { text: string }[]
+				const content = textParts.map((p) => p.text).join("")
+				if (content) {
+					const userOp = createUserMessageOperation(
+						sessionId,
+						content,
+						msg.info.model,
+						msg.info.agent,
+						msg.info.time.created,
+						msg.info.id,
+					)
+					userOp.expanded = false
+					operations.push(userOp)
+					this.store.add(userOp)
+				}
+			} else {
+				for (const part of msg.parts) {
+					const op = partToOperation(part, msg.info)
+					if (op) {
+						op.expanded = false
+						operations.push(op)
+						this.store.add(op)
+					}
+				}
+				if (msg.info.error) {
+					const errorOp = createErrorOperation(msg.info.error, sessionId, msg.info.id)
+					errorOp.expanded = true
+					operations.push(errorOp)
+					this.store.add(errorOp)
+				}
+			}
+		}
+
+		this.sendMessage({
+			panelId: this.panelId,
+			type: "setCurrentSession",
+			data: { sessionId, title: sessionInfo.title, agent: lastAgent },
+		})
+		this.sendMessage({
+			panelId: this.panelId,
+			type: "setOperations",
+			data: { operations },
+		})
+		this.sendSessionRevert(activeRevert, this.countRevertedMessages(messages, activeRevert))
+
+		this.isLoadingHistory = false
+		this.processPendingOperations()
+		this.computeAndSendUsage()
 	}
 
 	private async handleForkFromMessage(messageID: string): Promise<void> {
@@ -821,6 +961,20 @@ export class AssistantPanel {
 				type: "permissionRequest",
 				data: req,
 			})
+		})
+
+		this.unsubscribeFromMessageInfo = backend.onMessageInfo(sessionId, (info) => {
+			if (this.isDisposed) {
+				return
+			}
+			if (info.role !== "user") {
+				return
+			}
+			const opId = this.pendingUserMessages.dequeue()
+			if (!opId) {
+				return
+			}
+			this.updateOperation(opId, { messageId: info.id })
 		})
 	}
 
@@ -986,19 +1140,30 @@ export class AssistantPanel {
 			return
 		}
 
+		const sessionId = this.sessionId
+		const hadRevert = this.sessionReverts.get(sessionId) !== undefined
+
 		// Use the per-session model. Fall back to the opencode server's global
 		// config only if the per-session map has no entry (e.g. brand new panel).
-		const model = this.sessionModels.get(this.sessionId) ?? (await this.getCurrentModel())
+		const model = this.sessionModels.get(sessionId) ?? (await this.getCurrentModel())
 
-		// Add user message operation
-		this.addOperation(createUserMessageOperation(this.sessionId, prompt, model ?? undefined, agent))
+		// Add user message operation. The backend will assign the real message id asynchronously; track this op so we can patch it when the id arrives.
+		const userOp = createUserMessageOperation(sessionId, prompt, model ?? undefined, agent)
+		this.pendingUserMessages.enqueue(userOp.id)
+		this.addOperation(userOp)
 
 		try {
-			await backend.sendMessage(this.sessionId, prompt, agent, model ?? undefined)
+			await backend.sendMessage(sessionId, prompt, agent, model ?? undefined)
+
+			// Sending a new prompt commits any staged revert. The server has already removed the reverted messages by this point, so clear our local revert state and dismiss the dock.
+			if (hadRevert) {
+				this.sessionReverts.set(sessionId, undefined)
+				this.sendSessionRevert(undefined, 0)
+			}
 		} catch (err) {
 			logError("Failed to send prompt:", err)
 			const errorMessage = err instanceof Error ? err.message : "Failed to send message"
-			this.addOperation(createErrorOperation({ name: "UnknownError", data: { message: errorMessage } }, this.sessionId))
+			this.addOperation(createErrorOperation({ name: "UnknownError", data: { message: errorMessage } }, sessionId))
 		}
 	}
 
@@ -1304,6 +1469,14 @@ export class AssistantPanel {
 			this.unsubscribeFromStatus()
 			this.unsubscribeFromStatus = null
 		}
+
+		if (this.unsubscribeFromMessageInfo) {
+			this.unsubscribeFromMessageInfo()
+			this.unsubscribeFromMessageInfo = null
+		}
+
+		this.pendingUserMessages.clear()
+		this.sessionReverts.clear()
 
 		this.removeSessionFromStorage()
 

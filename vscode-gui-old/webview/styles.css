@@ -1311,6 +1311,40 @@ body {
 	font-style: italic;
 }
 
+/* Revert Dock (shown when a session has a staged revert awaiting commit) */
+#revert-dock {
+	display: none;
+	align-items: center;
+	gap: 12px;
+	padding: 8px 16px;
+	background: var(--vscode-inputValidation-warningBackground, var(--vscode-badge-background));
+	border-top: 1px solid var(--border);
+	font-size: 13px;
+}
+
+#revert-dock.visible {
+	display: flex;
+}
+
+#revert-dock-text {
+	flex: 1;
+}
+
+.revert-dock-btn {
+	padding: 4px 12px;
+	background: transparent;
+	color: var(--vscode-button-foreground);
+	border: 1px solid var(--vscode-button-border);
+	border-radius: 4px;
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 500;
+}
+
+.revert-dock-btn:hover {
+	background: var(--vscode-button-hoverBackground);
+}
+
 /* Subtask link button */
 .subtask-link {
 	background: var(--vscode-button-background) !important;
