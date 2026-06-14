@@ -1,7 +1,6 @@
 import { test, describe } from "node:test"
 import assert from "node:assert"
 import { InMemoryOperationStore } from "./operationStore"
-import { getOperationConfig } from "./operationTypes"
 
 describe("OperationStore", () => {
 	test("should add and retrieve operations", () => {
@@ -99,43 +98,5 @@ describe("OperationStore", () => {
 		store.clear()
 
 		assert.strictEqual(store.getAll().length, 0)
-	})
-})
-
-describe("OperationTypes", () => {
-	test("should return type config for known types", () => {
-		const op = {
-			id: "test-1",
-			type: "text" as const,
-			title: "Response" as const,
-			content: "Test",
-			timestamp: Date.now(),
-			expanded: true,
-			status: "pending" as const,
-			sessionId: "session-1",
-			messageId: "msg-1",
-			partId: "part-1",
-		}
-		const config = getOperationConfig(op)
-		assert.ok(config)
-		assert.strictEqual(config.icon, "comment")
-	})
-
-	test("should return config for thinking type", () => {
-		const op = {
-			id: "test-1",
-			type: "thinking" as const,
-			title: "Thinking..." as const,
-			content: "Test",
-			timestamp: Date.now(),
-			expanded: true,
-			status: "complete" as const,
-			sessionId: "session-1",
-			messageId: "msg-1",
-			partId: "part-1",
-		}
-		const config = getOperationConfig(op)
-		assert.ok(config)
-		assert.strictEqual(config.icon, "sparkle")
 	})
 })

@@ -39,6 +39,7 @@
     ]
   },
   "scripts": {
+	"typecheck": "bun --bun tsc --noEmit",
     "build": "tsc && cd webview/ts && tsc",
     "watch": "tsc --watch",
     "test": "bun test ./**/*.test.ts",

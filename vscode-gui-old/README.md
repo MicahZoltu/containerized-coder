@@ -58,7 +58,6 @@ extension-host/
   extension.ts         # Entry point (1 command)
   assistantPanel.ts    # Webview + messages
   operationStore.ts    # In-memory storage
-  operationTypes.ts    # 7 type definitions
   opencodeBackend.ts   # CLI spawning + HTTP
   types/
     operations.ts      # TypeScript interfaces
