@@ -1079,6 +1079,30 @@ function getCopyableContent(op: Operation): string | null {
 	}
 }
 
+function wireCopyButtonClickHandler(copyBtn: HTMLButtonElement, el: HTMLElement): void {
+	copyBtn.addEventListener("click", async (e) => {
+		e.stopPropagation()
+		try {
+			const opId = el.dataset.id
+			const currentOp = opId ? operations.get(opId) : null
+			const contentToCopy = currentOp ? getCopyableContent(currentOp) : null
+
+			if (contentToCopy) {
+				await navigator.clipboard.writeText(contentToCopy)
+				const originalTitle = copyBtn.title
+				copyBtn.textContent = "✓"
+				copyBtn.title = "Copied!"
+				setTimeout(() => {
+					copyBtn.textContent = "📋"
+					copyBtn.title = originalTitle
+				}, 1500)
+			}
+		} catch (err) {
+			console.error("Failed to copy:", err)
+		}
+	})
+}
+
 function buildUserMessageActionButtons(messageId: string): string {
 	const safeId = escapeHtml(messageId)
 	return `<button class="op-undo-btn" title="Undo back to this message" data-message-id="${safeId}">⏪</button><button class="op-fork-btn" title="Fork session from this message" data-message-id="${safeId}">🍴</button>`
@@ -1156,28 +1180,7 @@ async function createOperationElement(op: Operation): Promise<HTMLElement> {
 	if (copyableContent) {
 		const copyBtn = el.querySelector(".op-copy-btn") as HTMLButtonElement
 		if (copyBtn) {
-			copyBtn.addEventListener("click", async (e) => {
-				e.stopPropagation()
-				try {
-					// Get operation ID from parent element and fetch current operation state
-					const opId = el.dataset.id
-					const currentOp = opId ? operations.get(opId) : null
-					const contentToCopy = currentOp ? getCopyableContent(currentOp) : null
-
-					if (contentToCopy) {
-						await navigator.clipboard.writeText(contentToCopy)
-						const originalTitle = copyBtn.title
-						copyBtn.textContent = "✓"
-						copyBtn.title = "Copied!"
-						setTimeout(() => {
-							copyBtn.textContent = "📋"
-							copyBtn.title = originalTitle
-						}, 1500)
-					}
-				} catch (err) {
-					console.error("Failed to copy:", err)
-				}
-			})
+			wireCopyButtonClickHandler(copyBtn, el)
 		}
 	}
 
@@ -1289,6 +1292,28 @@ async function updateOperationElement(el: HTMLElement, op: Operation, updates: P
 				const previewEl = el.querySelector(".op-title-preview")
 				if (previewEl) {
 					previewEl.textContent = previewText
+				}
+			}
+		}
+
+		if (
+			"content" in updates
+			&& mergedOp.content
+			&& (mergedOp.type === "text" || mergedOp.type === "thinking" || mergedOp.type === "user-message")
+			&& !el.querySelector(".op-copy-btn")
+		) {
+			const meta = el.querySelector(".op-header .op-meta")
+			if (meta) {
+				const copyBtn = document.createElement("button")
+				copyBtn.className = "op-copy-btn"
+				copyBtn.title = "Copy raw text"
+				copyBtn.textContent = "📋"
+				wireCopyButtonClickHandler(copyBtn, el)
+				const firstUserActionBtn = meta.querySelector(".op-undo-btn, .op-fork-btn")
+				if (firstUserActionBtn) {
+					meta.insertBefore(copyBtn, firstUserActionBtn)
+				} else {
+					meta.appendChild(copyBtn)
 				}
 			}
 		}
