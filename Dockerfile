@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/var/cache/apt/archives,sharing=locked <<-EOF
 EOF
 
 # Cache dependecy layer
-COPY vscode-gui-old/package.json vscode-gui-old/package-lock.json ./
+COPY vscode-gui-old/package.json vscode-gui-old/bun.lock ./
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
 # Copy remaining extension files
@@ -168,4 +168,41 @@ RUN <<-EOF
 	sudo mv /tmp/bun-extract/bun-linux-x64/bun /usr/local/bin/bun
 	sudo chmod +x /usr/local/bin/bun
 	rm -rf /tmp/bun.zip /tmp/bun-extract
+EOF
+
+
+###
+# Rust Version
+###
+FROM base AS with-rust
+
+RUN --mount=type=cache,target=/var/cache/apt/archives,sharing=locked <<-EOF
+	# install dependencies
+	set -e
+	sudo rm -f /var/cache/apt/archives/lock
+	sudo apt-get update
+	sudo apt-get install -y --no-install-recommends xz-utils=5.8.1-1 gcc=4:14.2.0-1 libc6-dev=2.41-12+deb13u3 gcc-mingw-w64-x86-64-win32=14.2.0-19+27+b1
+	sudo rm -rf /var/lib/apt/lists/*
+EOF
+
+RUN <<-EOF
+	# install rust
+	set -e
+	curl -fsSL -o /tmp/rust.tar.xz https://static.rust-lang.org/dist/rust-1.96.0-x86_64-unknown-linux-gnu.tar.xz
+	echo "c295047583a56238ea06b43f849f4b877fa12bfd4c7103f8d9a74c94c9c4e108  /tmp/rust.tar.xz" | sha256sum -c -
+	mkdir -p /tmp/rust-stage
+	tar -xJf /tmp/rust.tar.xz -C /tmp/rust-stage --strip-components=1
+	sudo sh /tmp/rust-stage/install.sh --prefix=/usr/local --without=rust-docs,rust-docs-json-preview
+	rm -rf /tmp/rust-stage /tmp/rust.tar.xz
+EOF
+
+RUN <<-EOF
+	# install the rust standard library for the x86_64-pc-windows-gnu cross-compile target.
+	set -e
+	curl -fsSL -o /tmp/rust-std-windows-gnu.tar.xz https://static.rust-lang.org/dist/rust-std-1.96.0-x86_64-pc-windows-gnu.tar.xz
+	echo "4502f0fdac8151b874723acb771cc5dca9a33df9f12a40081947909058bb46dc  /tmp/rust-std-windows-gnu.tar.xz" | sha256sum -c -
+	mkdir -p /tmp/rust-std-stage
+	tar -xJf /tmp/rust-std-windows-gnu.tar.xz -C /tmp/rust-std-stage --strip-components=1
+	sudo sh /tmp/rust-std-stage/install.sh --prefix=/usr/local
+	rm -rf /tmp/rust-std-stage /tmp/rust-std-windows-gnu.tar.xz
 EOF
