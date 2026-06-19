@@ -92,7 +92,7 @@ EOF
 ###
 # Stage 3: Final Runtime Image
 ###
-FROM ghcr.io/coder/code-server:4.121.0-trixie@sha256:607c3e129123f7e30cd5dedde2cfd3c5a0d10d81fe3bda0122b60eebf0bf7c75 AS base
+FROM ghcr.io/coder/code-server:4.125.0-trixie@sha256:9a7848dd2627158e3873f88bd8743807a4168e4d580f26ec0cbc132a9d9ee78e AS base
 
 RUN <<-EOF
 	# Enable Debian snapshot repository for reproducible builds
@@ -130,7 +130,7 @@ EOF
 ENV PORT=8080
 ENV CODE_SERVER_HOST=0.0.0.0
 ENV CS_DISABLE_GETTING_STARTED_OVERRIDE=1
-ENV APP_NAME=code-server
+ENV CODE_SERVER_APP_NAME=code-server
 RUN git config --global --add safe.directory '*'
 RUN git config --global core.editor "code-server --wait"
 
@@ -142,7 +142,7 @@ EXPOSE 8080
 # Use code-server directly (pre-installed, no download needed)
 # Extensions are loaded from ~/.local/share/code-server/extensions by default
 # Note: --disable-telemetry and --disable-workspace-trust have no env var equivalents
-ENTRYPOINT ["/usr/bin/code-server", "--disable-telemetry", "--disable-workspace-trust", "--disable-update-check", "--auth", "none", "--app-name", "$APP_NAME", "/workspace"]
+ENTRYPOINT ["/usr/bin/code-server", "--disable-telemetry", "--disable-workspace-trust", "--disable-update-check", "--auth", "none", "/workspace"]
 
 
 ###
