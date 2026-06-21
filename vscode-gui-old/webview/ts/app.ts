@@ -258,9 +258,21 @@ interface WebviewMessage {
 
 type AgentMode = "build" | "plan" | "docs"
 
+type BellState = "off" | "background" | "always"
+
+const BELL_STATES: BellState[] = ["off", "background", "always"]
+
+const BELL_BUTTON_CONFIG: Record<BellState, { icon: string; title: string }> = {
+	off: { icon: "🔕", title: "Notifications: Off" },
+	background: { icon: "🔔", title: "Notifications: Background only" },
+	always: { icon: "🔔", title: "Notifications: Always on" },
+}
+
 // VSCode API type
 declare function acquireVsCodeApi(): {
 	postMessage(message: WebviewMessage): void
+	getState<T>(): T | undefined
+	setState<T>(state: T): void
 }
 
 // Module state
@@ -275,6 +287,11 @@ let parentSessionId: string | null = null
 let parentSessionTitle: string | null = null
 let todos: TodoItem[] = []
 let todoSidebarVisible = false
+
+let currentSessionStatus: SessionStatus | null = null
+let notificationPermissionRequested = false
+let audioContext: AudioContext | null = null
+let bellState: BellState = "background"
 
 // DOM elements
 const container = document.getElementById("operations-container") as HTMLDivElement
@@ -293,6 +310,7 @@ const sessionListTrashed = document.getElementById("session-list-trashed") as HT
 const newSessionBtn = document.getElementById("new-session-btn") as HTMLButtonElement
 const refreshSessionsBtn = document.getElementById("refresh-sessions-btn") as HTMLButtonElement
 const renameSessionBtn = document.getElementById("rename-session-btn") as HTMLButtonElement
+const bellBtn = document.getElementById("bell-btn") as HTMLButtonElement
 const sessionSelector = document.getElementById("session-selector") as HTMLDivElement
 const todoSidebar = document.getElementById("todo-sidebar") as HTMLDivElement
 const todoList = document.getElementById("todo-list") as HTMLDivElement
@@ -1401,6 +1419,8 @@ function submitPrompt(): void {
 	const text = input.value.trim()
 	if (!text) return
 
+	requestNotificationPermissionIfNeeded()
+
 	if (panelId) {
 		vscode.postMessage({
 			panelId,
@@ -1711,6 +1731,10 @@ newSessionBtn.addEventListener("click", () => {
 	}
 })
 
+bellBtn.addEventListener("click", () => {
+	cycleBellState()
+})
+
 refreshSessionsBtn.addEventListener("click", () => {
 	if (panelId) {
 		vscode.postMessage({
@@ -1737,6 +1761,8 @@ refreshSessionsBtn.addEventListener("mouseenter", () => showTooltip("Refresh Ses
 refreshSessionsBtn.addEventListener("mouseleave", hideTooltip)
 newSessionBtn.addEventListener("mouseenter", () => showTooltip("New Session", newSessionBtn, "top"))
 newSessionBtn.addEventListener("mouseleave", hideTooltip)
+bellBtn.addEventListener("mouseenter", () => showTooltip(BELL_BUTTON_CONFIG[bellState].title, bellBtn, "top"))
+bellBtn.addEventListener("mouseleave", hideTooltip)
 todoToggleBtn.addEventListener("mouseenter", () => showTooltip("TODO List", todoToggleBtn, "top"))
 todoToggleBtn.addEventListener("mouseleave", hideTooltip)
 todoToggleFixed.addEventListener("mouseenter", () => showTooltip("TODO List", todoToggleFixed, "top"))
@@ -1868,6 +1894,117 @@ function getPermissionDetails(req: PermissionRequest): string | null {
 	}
 }
 
+function playAlertSound(): void {
+	try {
+		const AudioContextCtor: typeof AudioContext =
+			window.AudioContext ||
+			(window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+		if (typeof AudioContextCtor !== "function") return
+
+		if (!audioContext) {
+			audioContext = new AudioContextCtor()
+		}
+		if (audioContext.state === "suspended") {
+			audioContext.resume()
+		}
+
+		const oscillator = audioContext.createOscillator()
+		const gain = audioContext.createGain()
+		oscillator.type = "sine"
+		oscillator.frequency.value = 880
+		gain.gain.setValueAtTime(0.0001, audioContext.currentTime)
+		gain.gain.exponentialRampToValueAtTime(0.3, audioContext.currentTime + 0.02)
+		gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.3)
+		oscillator.connect(gain)
+		gain.connect(audioContext.destination)
+		oscillator.start()
+		oscillator.stop(audioContext.currentTime + 0.3)
+	} catch (err) {
+		console.error("[OpenCode GUI] failed to play alert sound", err)
+	}
+}
+
+function showOsToast(title: string, body: string): void {
+	if (typeof Notification === "undefined") return
+	if (Notification.permission !== "granted") return
+
+	try {
+		new Notification(title, { body })
+	} catch (err) {
+		console.error("[OpenCode GUI] failed to show toast", err)
+	}
+}
+
+function requestNotificationPermissionIfNeeded(): void {
+	if (typeof Notification === "undefined") return
+	if (notificationPermissionRequested) return
+	notificationPermissionRequested = true
+
+	Notification.requestPermission().catch((err) => {
+		console.error("[OpenCode GUI] notification permission request failed", err)
+	})
+}
+
+function isPanelBackgrounded(): boolean {
+	if (document.hidden) return true
+	try {
+		return !window.top!.document.hasFocus()
+	} catch {
+		return !document.hasFocus()
+	}
+}
+
+function loadBellState(): void {
+	const saved = vscode.getState<{ bellState?: BellState }>()
+	const savedState = saved?.bellState
+	if (savedState && BELL_STATES.includes(savedState)) {
+		bellState = savedState
+	}
+	updateBellButton()
+}
+
+function saveBellState(): void {
+	vscode.setState({ bellState })
+}
+
+function updateBellButton(): void {
+	bellBtn.classList.remove("off", "background", "always")
+	bellBtn.classList.add(bellState)
+	const config = BELL_BUTTON_CONFIG[bellState]
+	bellBtn.textContent = config.icon
+}
+
+function cycleBellState(): void {
+	const currentIndex = BELL_STATES.indexOf(bellState)
+	const nextIndex = (currentIndex + 1) % BELL_STATES.length
+	bellState = BELL_STATES[nextIndex]
+	updateBellButton()
+	saveBellState()
+}
+
+function notifySessionFinished(): void {
+	if (bellState === "off") return
+	const backgrounded = isPanelBackgrounded()
+	if (bellState === "always" || backgrounded) {
+		playAlertSound()
+	}
+	if (backgrounded) {
+		showOsToast("OpenCode session finished", "The session is done working.")
+	}
+}
+
+function isQuestionToolAwaitingInput(op: Operation): boolean {
+	return op.type === "tool" && op.tool === "question" && op.state === "running"
+}
+
+function notifyWaitingForInput(): void {
+	if (bellState === "off") return
+	const backgrounded = isPanelBackgrounded()
+	if (bellState === "always" || backgrounded) {
+		playAlertSound()
+	}
+}
+
 // Handle messages from extension
 window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 	const msg = e.data
@@ -1897,6 +2034,10 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 				}
 			}
 
+			if (isQuestionToolAwaitingInput(op)) {
+				notifyWaitingForInput()
+			}
+
 			scrollToBottom()
 			break
 		}
@@ -1906,7 +2047,12 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 			const existing = operations.get(id)
 			if (!existing) break
 
+			const wasAwaitingInput = isQuestionToolAwaitingInput(existing)
 			Object.assign(existing, updates)
+			if (!wasAwaitingInput && isQuestionToolAwaitingInput(existing)) {
+				notifyWaitingForInput()
+			}
+
 			const el = document.querySelector(`[data-id="${id}"]`) as HTMLElement | null
 			if (el) {
 				await updateOperationElement(el, existing, updates)
@@ -2001,12 +2147,21 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 					item.classList.add("status-idle")
 				}
 			}
+
+			if (sessionId === currentSessionId) {
+				const wasRunning = currentSessionStatus?.type === "busy" || currentSessionStatus?.type === "retry"
+				if (wasRunning && status.type === "idle") {
+					notifySessionFinished()
+				}
+				currentSessionStatus = status
+			}
 			break
 		}
 
 		case "setCurrentSession": {
 			const { sessionId, title, agent } = msg.data as { sessionId: string; title?: string; agent?: string }
 			currentSessionId = sessionId
+			currentSessionStatus = null
 			sessionDropdownLabel.textContent = title || sessionId.substring(0, 8)
 			if (agent && (agent === "build" || agent === "plan" || agent === "docs")) {
 				setMode(agent)
@@ -2079,6 +2234,7 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 		case "permissionRequest": {
 			const req = msg.data as PermissionRequest
 			showPermissionPrompt(req)
+			notifyWaitingForInput()
 			break
 		}
 
@@ -2110,6 +2266,7 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 	panelId = panelIdValue
 	startElapsedTimers()
 	initModelSelector(panelIdValue, vscode)
+	loadBellState()
 	vscode.postMessage({
 		panelId,
 		type: "init",

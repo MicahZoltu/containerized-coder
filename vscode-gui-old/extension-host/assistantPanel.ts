@@ -1360,6 +1360,7 @@ export class AssistantPanel {
 			<button id="rename-session-btn" class="topbar-icon-btn">✏️</button>
 			<button id="refresh-sessions-btn" class="topbar-icon-btn">↻</button>
 			<button id="new-session-btn" class="topbar-icon-btn">➕</button>
+			<button id="bell-btn" class="topbar-icon-btn">🔔</button>
 		</div>
 	</div>
 	<div id="operations-container"></div>

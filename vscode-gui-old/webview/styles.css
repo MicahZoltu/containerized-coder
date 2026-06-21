@@ -194,6 +194,16 @@ body {
 	font-size: 22px;
 }
 
+/* Bell notification button states */
+#bell-btn.off {
+	opacity: 0.5;
+}
+
+#bell-btn.always {
+	background: var(--vscode-button-background);
+	color: var(--vscode-button-foreground);
+}
+
 #operations-container {
 	flex: 1;
 	overflow-y: auto;
