@@ -1812,6 +1812,7 @@ function showPermissionPrompt(req: PermissionRequest): void {
 				})
 			}
 			prompt.remove()
+			refreshFavicon()
 		})
 	})
 
@@ -1946,12 +1947,10 @@ function requestNotificationPermissionIfNeeded(): void {
 }
 
 function isPanelBackgrounded(): boolean {
+	const topDocument = window.top!.document
+	if (topDocument.visibilityState === "hidden") return true
 	if (document.hidden) return true
-	try {
-		return !window.top!.document.hasFocus()
-	} catch {
-		return !document.hasFocus()
-	}
+	return !topDocument.hasFocus()
 }
 
 function loadBellState(): void {
@@ -2003,6 +2002,98 @@ function notifyWaitingForInput(): void {
 	if (bellState === "always" || backgrounded) {
 		playAlertSound()
 	}
+	if (backgrounded) {
+		showOsToast("OpenCode needs input", "A session is waiting for your response.")
+	}
+}
+
+// Top-frame favicon reflects the current session's state at a glance:
+//   green ball = ready for user input (question tool awaiting, or permission prompt pending)
+//   red ball   = session is running (busy or retrying)
+//   restored   = idle
+// The title is left untouched. The favicon always matches current state; it is
+// not toggled by tab focus/backgrounding.
+const FAVICON_READY_DATA_URI =
+	"data:image/svg+xml," +
+	encodeURIComponent(
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+			'<defs><radialGradient id="g" cx="35%" cy="30%" r="75%">' +
+			'<stop offset="0%" stop-color="#7bd88f"/><stop offset="100%" stop-color="#1e7e34"/>' +
+			"</radialGradient></defs>" +
+			'<circle cx="16" cy="16" r="14" fill="url(#g)"/>' +
+			'<circle cx="16" cy="16" r="14" fill="none" stroke="#155724" stroke-width="1"/>' +
+			"</svg>",
+	)
+const FAVICON_RUNNING_DATA_URI =
+	"data:image/svg+xml," +
+	encodeURIComponent(
+		'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+			'<defs><radialGradient id="r" cx="35%" cy="30%" r="75%">' +
+			'<stop offset="0%" stop-color="#f08080"/><stop offset="100%" stop-color="#bd2130"/>' +
+			"</radialGradient></defs>" +
+			'<circle cx="16" cy="16" r="14" fill="url(#r)"/>' +
+			'<circle cx="16" cy="16" r="14" fill="none" stroke="#8b1a1a" stroke-width="1"/>' +
+			"</svg>",
+	)
+
+// Captured once on first favicon update so the code-server favicon can be
+// restored when the session is idle. `undefined` = not yet captured.
+let faviconOriginalHref: string | null | undefined = undefined
+let faviconLinkOwnedByUs = false
+
+function captureOriginalFavicon(): void {
+	if (faviconOriginalHref !== undefined) return
+	const topDocument = window.top!.document
+	const link =
+		topDocument.querySelector<HTMLLinkElement>('link[rel="icon"]') ??
+		topDocument.querySelector<HTMLLinkElement>('link[rel="shortcut icon"]')
+	faviconOriginalHref = link ? link.href : null
+	faviconLinkOwnedByUs = !link
+}
+
+function setFaviconHref(href: string | null): void {
+	const topDocument = window.top!.document
+	if (href === null) {
+		// Restore: if we injected the link ourselves, remove it; otherwise
+		// reset the existing link back to its original href.
+		if (faviconLinkOwnedByUs) {
+			topDocument.querySelector<HTMLLinkElement>('link[rel="icon"]')?.remove()
+		} else if (faviconOriginalHref != null) {
+			const link =
+				topDocument.querySelector<HTMLLinkElement>('link[rel="icon"]') ??
+				topDocument.querySelector<HTMLLinkElement>('link[rel="shortcut icon"]')
+			if (link) link.href = faviconOriginalHref
+		}
+		return
+	}
+	let link =
+		topDocument.querySelector<HTMLLinkElement>('link[rel="icon"]') ??
+		topDocument.querySelector<HTMLLinkElement>('link[rel="shortcut icon"]')
+	if (!link) {
+		link = topDocument.createElement("link")
+		link.rel = "icon"
+		topDocument.head.appendChild(link)
+		faviconLinkOwnedByUs = true
+	}
+	link.href = href
+}
+
+function isSessionRunning(): boolean {
+	return currentSessionStatus?.type === "busy" || currentSessionStatus?.type === "retry"
+}
+
+function refreshFavicon(): void {
+	captureOriginalFavicon()
+	if (isSessionRunning()) {
+		setFaviconHref(FAVICON_RUNNING_DATA_URI)
+	} else {
+		setFaviconHref(FAVICON_READY_DATA_URI)
+	}
+}
+
+function restoreFavicon(): void {
+	captureOriginalFavicon()
+	setFaviconHref(faviconOriginalHref ?? null)
 }
 
 // Handle messages from extension
@@ -2034,42 +2125,45 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 				}
 			}
 
-			if (isQuestionToolAwaitingInput(op)) {
-				notifyWaitingForInput()
-			}
-
-			scrollToBottom()
-			break
+		if (isQuestionToolAwaitingInput(op)) {
+			notifyWaitingForInput()
 		}
+		refreshFavicon()
 
-		case "updateOperation": {
-			const { id, updates } = msg.data as { id: string; updates: Partial<Operation> }
-			const existing = operations.get(id)
-			if (!existing) break
+		scrollToBottom()
+		break
+	}
 
-			const wasAwaitingInput = isQuestionToolAwaitingInput(existing)
-			Object.assign(existing, updates)
-			if (!wasAwaitingInput && isQuestionToolAwaitingInput(existing)) {
-				notifyWaitingForInput()
-			}
+	case "updateOperation": {
+		const { id, updates } = msg.data as { id: string; updates: Partial<Operation> }
+		const existing = operations.get(id)
+		if (!existing) break
 
-			const el = document.querySelector(`[data-id="${id}"]`) as HTMLElement | null
-			if (el) {
-				await updateOperationElement(el, existing, updates)
-			}
-			scrollToBottom()
-			break
+		const wasAwaitingInput = isQuestionToolAwaitingInput(existing)
+		Object.assign(existing, updates)
+		if (!wasAwaitingInput && isQuestionToolAwaitingInput(existing)) {
+			notifyWaitingForInput()
 		}
+		refreshFavicon()
 
-		case "removeOperation": {
-			const opId = msg.data.id as string
-			operations.delete(opId)
-			const el = document.querySelector(`[data-id="${opId}"]`)
-			if (el) {
-				el.remove()
-			}
-			break
+		const el = document.querySelector(`[data-id="${id}"]`) as HTMLElement | null
+		if (el) {
+			await updateOperationElement(el, existing, updates)
 		}
+		scrollToBottom()
+		break
+	}
+
+	case "removeOperation": {
+		const opId = msg.data.id as string
+		operations.delete(opId)
+		const el = document.querySelector(`[data-id="${opId}"]`)
+		if (el) {
+			el.remove()
+		}
+		refreshFavicon()
+		break
+	}
 
 		case "setTheme":
 			// Theme is automatically applied via CSS variables
@@ -2148,26 +2242,28 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 				}
 			}
 
-			if (sessionId === currentSessionId) {
-				const wasRunning = currentSessionStatus?.type === "busy" || currentSessionStatus?.type === "retry"
-				if (wasRunning && status.type === "idle") {
-					notifySessionFinished()
-				}
-				currentSessionStatus = status
+		if (sessionId === currentSessionId) {
+			const wasRunning = currentSessionStatus?.type === "busy" || currentSessionStatus?.type === "retry"
+			if (wasRunning && status.type === "idle") {
+				notifySessionFinished()
 			}
-			break
+			currentSessionStatus = status
+			refreshFavicon()
 		}
+		break
+	}
 
-		case "setCurrentSession": {
-			const { sessionId, title, agent } = msg.data as { sessionId: string; title?: string; agent?: string }
-			currentSessionId = sessionId
-			currentSessionStatus = null
-			sessionDropdownLabel.textContent = title || sessionId.substring(0, 8)
-			if (agent && (agent === "build" || agent === "plan" || agent === "docs")) {
-				setMode(agent)
-			}
-			break
+	case "setCurrentSession": {
+		const { sessionId, title, agent } = msg.data as { sessionId: string; title?: string; agent?: string }
+		currentSessionId = sessionId
+		currentSessionStatus = null
+		sessionDropdownLabel.textContent = title || sessionId.substring(0, 8)
+		if (agent && (agent === "build" || agent === "plan" || agent === "docs")) {
+			setMode(agent)
 		}
+		refreshFavicon()
+		break
+	}
 
 		case "setParentSession": {
 			const { parentId, parentTitle } = msg.data as { parentId: string | null; parentTitle?: string }
@@ -2213,11 +2309,12 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 					}
 				}
 			}
-			scrollToBottom(true)
-			break
-		}
+		scrollToBottom(true)
+		refreshFavicon()
+		break
+	}
 
-		case "setTodos": {
+	case "setTodos": {
 			const { todos: newTodos } = msg.data as { todos: TodoItem[] }
 			todos = newTodos
 			renderTodos()
@@ -2231,12 +2328,13 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 			break
 		}
 
-		case "permissionRequest": {
-			const req = msg.data as PermissionRequest
-			showPermissionPrompt(req)
-			notifyWaitingForInput()
-			break
-		}
+	case "permissionRequest": {
+		const req = msg.data as PermissionRequest
+		showPermissionPrompt(req)
+		notifyWaitingForInput()
+		refreshFavicon()
+		break
+	}
 
 		case "setSessionUsage": {
 			const { cost, tokens } = msg.data as { cost: number; tokens: SessionTokens }
@@ -2267,6 +2365,9 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 	startElapsedTimers()
 	initModelSelector(panelIdValue, vscode)
 	loadBellState()
+	refreshFavicon()
+	window.addEventListener("pagehide", restoreFavicon, { passive: true })
+	window.addEventListener("beforeunload", restoreFavicon, { passive: true })
 	vscode.postMessage({
 		panelId,
 		type: "init",
