@@ -2082,9 +2082,24 @@ function isSessionRunning(): boolean {
 	return currentSessionStatus?.type === "busy" || currentSessionStatus?.type === "retry"
 }
 
+function anyOperationAwaitingInput(): boolean {
+	for (const op of operations.values()) {
+		if (isQuestionToolAwaitingInput(op)) return true
+	}
+	return false
+}
+
+function anyPermissionPromptPending(): boolean {
+	return document.querySelector(".permission-prompt") !== null
+}
+
 function refreshFavicon(): void {
 	captureOriginalFavicon()
-	if (isSessionRunning()) {
+	// Awaiting user input takes precedence: even if session status is "busy",
+	// the agent is blocked on the user, so it's the user's turn (green).
+	if (anyOperationAwaitingInput() || anyPermissionPromptPending()) {
+		setFaviconHref(FAVICON_READY_DATA_URI)
+	} else if (isSessionRunning()) {
 		setFaviconHref(FAVICON_RUNNING_DATA_URI)
 	} else {
 		setFaviconHref(FAVICON_READY_DATA_URI)
