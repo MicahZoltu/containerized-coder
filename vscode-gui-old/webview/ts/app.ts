@@ -2079,7 +2079,16 @@ function setFaviconHref(href: string | null): void {
 }
 
 function isSessionRunning(): boolean {
-	return currentSessionStatus?.type === "busy" || currentSessionStatus?.type === "retry"
+	if (currentSessionStatus?.type === "busy" || currentSessionStatus?.type === "retry") {
+		return true
+	}
+	// Fallback: the backend status snapshot can be stale when switching to a
+	// session that is already steadily busy (no status-change event fires).
+	// A pending/running operation is a reliable signal the session is working.
+	for (const op of operations.values()) {
+		if (op.status === "pending" || op.status === "running") return true
+	}
+	return false
 }
 
 function anyOperationAwaitingInput(): boolean {
@@ -2306,9 +2315,13 @@ window.addEventListener("message", async (e: MessageEvent<ExtMessage>) => {
 			operations.clear()
 			currentStepContainer = null
 
+			// Populate the operations map synchronously before any async rendering
+			// so that refreshFavicon()/isSessionRunning() see the full set.
 			for (const op of ops) {
 				operations.set(op.id, op)
+			}
 
+			for (const op of ops) {
 				if (op.type === "step-start") {
 					currentStepContainer = document.createElement("div")
 					currentStepContainer.className = "step-container"

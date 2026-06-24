@@ -464,6 +464,16 @@ export class AssistantPanel {
 				data: { operations },
 			})
 
+			// Re-send the selected session's status AFTER setOperations so the
+			// webview's favicon reflects the current (possibly busy) state. Sent
+			// last so it wins over any stale status that the global subscription
+			// may have delivered for this session during the switch.
+			this.sendMessage({
+				panelId: this.panelId,
+				type: "updateSessionStatus",
+				data: { sessionId, status: this.sessionStatus ?? { type: "idle" } },
+			})
+
 			this.sendSessionRevert(activeRevert, this.countRevertedMessages(messages, activeRevert))
 
 			// Done loading - process any events that arrived during loading
@@ -801,10 +811,20 @@ export class AssistantPanel {
 			type: "setCurrentSession",
 			data: { sessionId, title: sessionInfo.title, agent: lastAgent },
 		})
+
 		this.sendMessage({
 			panelId: this.panelId,
 			type: "setOperations",
 			data: { operations },
+		})
+
+		// Re-send the selected session's status AFTER setOperations so the
+		// favicon reflects the current state. Sent last so it wins over any
+		// stale status the global subscription may have delivered.
+		this.sendMessage({
+			panelId: this.panelId,
+			type: "updateSessionStatus",
+			data: { sessionId, status: this.sessionStatus ?? { type: "idle" } },
 		})
 		this.sendSessionRevert(activeRevert, this.countRevertedMessages(messages, activeRevert))
 
